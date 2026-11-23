@@ -1,0 +1,36 @@
+services:
+  app:
+    build: .
+    image: shipflow:local
+    environment:
+      SHOPIFY_API_KEY: ${SHOPIFY_API_KEY:?Set the Shopify client ID}
+      SHOPIFY_API_SECRET: ${SHOPIFY_API_SECRET:?Set the Shopify client secret}
+      SHOPIFY_APP_URL: ${SHOPIFY_APP_URL:?Set the public HTTPS app URL}
+      SCOPES: ${SCOPES:-}
+      DATABASE_URL: postgresql://shipflow:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/shipflow
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+  db:
+    image: postgres:19-bookworm
+    environment:
+      POSTGRES_DB: shipflow
+      POSTGRES_USER: shipflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres19_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shipflow -d shipflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  postgres19_data:
