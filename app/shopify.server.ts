@@ -5,17 +5,20 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
+import { resolveShopifyAppUrl } from "./app-url.server";
 import prisma from "./db.server";
+import { POLARIS_URL } from "./polaris";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October26,
-  scopes: process.env.SCOPES?.split(","),
-  appUrl: process.env.SHOPIFY_APP_URL || "",
+  scopes: (process.env.SCOPES || "read_markets").split(","),
+  appUrl: resolveShopifyAppUrl(process.env),
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  polarisUrl: POLARIS_URL,
   future: {
     expiringOfflineAccessTokens: true,
   },

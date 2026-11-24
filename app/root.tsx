@@ -2,7 +2,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 
 /**
  * Document shell. Polaris web components load via AppProvider
- * (`https://cdn.shopify.com/shopifycloud/polaris.js`) in app routes —
+ * (pinned to `https://cdn.shopify.com/shopifycloud/polaris.js`) in app routes —
  * no duplicate script tag needed here.
  */
 export const meta = () => [{ title: "ShipFlow" }];

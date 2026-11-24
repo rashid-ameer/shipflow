@@ -1,25 +1,33 @@
-client_id = "REPLACE_WITH_DEV_APP_CLIENT_ID"
-name = "ShipFlow"
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "c02477a8cc3c3a1deff4b3e3dc77f675"
+name = "Shipflow"
 application_url = "https://d5.genieapps.xyz"
 embedded = true
-
-[access_scopes]
-scopes = ""
-
-[auth]
-redirect_urls = ["https://d5.genieapps.xyz/auth/callback"]
 
 [webhooks]
 api_version = "2026-10"
 
-[[webhooks.subscriptions]]
-topics = ["app/uninstalled"]
-uri = "/webhooks/app/uninstalled"
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/privacy"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
-[[webhooks.subscriptions]]
-topics = ["app/scopes_update"]
-uri = "/webhooks/app/scopes_update"
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
 
-[[webhooks.subscriptions]]
-compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "/webhooks/privacy"
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_markets"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ "https://d5.genieapps.xyz/auth/callback" ]
+
+[build]
+automatically_update_urls_on_dev = true

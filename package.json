@@ -5,6 +5,9 @@
     "build": "react-router build",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc --noEmit",
+    "test:m1": "vite-node tests/app-url.test.ts && vite-node tests/m1-persistence.test.ts && vite-node tests/market-readiness.test.ts",
+    "test:markets": "vite-node tests/market-readiness.test.ts",
+    "test:units": "vite-node tests/units-form-state.test.ts",
     "dev": "react-router dev --host 0.0.0.0"
   },
   "type": "module",
@@ -21,15 +24,15 @@
     "@shopify/shopify-app-session-storage-prisma": "^11.0.0",
     "isbot": "^5.1.31",
     "prisma": "^6.19.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "react-router": "7.18.2"
   },
   "devDependencies": {
     "@shopify/polaris-types": "1.0.1",
     "@types/node": "^25.5.2",
-    "@types/react": "^18.3.25",
-    "@types/react-dom": "^18.3.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
   },

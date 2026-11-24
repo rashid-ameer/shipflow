@@ -32,3 +32,47 @@ model Session {
   refreshToken        String?
   refreshTokenExpires DateTime?
 }
+
+enum OnboardingStep {
+  WELCOME
+  UNITS
+  MODE
+  COMPLETE
+}
+
+enum OperatingMode {
+  DELIVERY_CUSTOMIZATION
+  CCS_RATES
+}
+
+enum CcsStatus {
+  UNKNOWN
+  ENABLED
+  DISABLED
+}
+
+model Store {
+  id                String          @id @default(cuid())
+  shopDomain        String          @unique
+  onboardingStep    OnboardingStep  @default(WELCOME)
+  mode              OperatingMode?
+  testMode           Boolean         @default(true)
+  ccsStatus          CcsStatus       @default(UNKNOWN)
+  ccsModeSelectedAt DateTime?
+  onboardedAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  settings           StoreSettings?
+}
+
+model StoreSettings {
+  id                String   @id @default(cuid())
+  storeId           String   @unique
+  weightUnit        String   @default("kg")
+  distanceUnit      String   @default("km")
+  dimensionUnit     String   @default("cm")
+  volumetricDivisor Float    @default(5000)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}

@@ -1,6 +1,6 @@
 # ShipFlow
 
-Docker Compose runs the embedded React Router app and PostgreSQL. Prisma applies the session migration on startup. The app home is at `/app`, and `/health` reports HTTP readiness.
+Docker Compose runs the embedded React Router app and PostgreSQL. Prisma applies the database migrations on startup. The app home is at `/app`, and `/health` reports HTTP readiness. Milestone 1 provides persisted onboarding, operating-mode selection, and the first dashboard.
 
 ## Connect a development store
 
@@ -39,5 +39,27 @@ Docker uses Node 26.13.1 LTS and PostgreSQL 19. Compose stores database files in
 
 Run `docker compose up --build -d --wait` after source changes. Run `docker compose exec app npm run typecheck` to check TypeScript. Use `docker compose down` to stop the services. The named PostgreSQL volume persists sessions across restarts. When the tunnel origin changes, update both the environment and Shopify URLs, then recreate the app container and apply the development app configuration again.
 
-The next feature milestone covers onboarding and the Delivery Customization and CCS Rates mode cards. [Implementation plan](../shipflow_docs/shipflow.milestones.md)
-# shipflow
+For the M1 persistence check, keep PostgreSQL running, set `DATABASE_URL` to the local port `5433`, and run `npm run test:m1`. The test uses a unique temporary shop domain and removes it when finished.
+
+## Inspect or reset local database data
+
+For a visual editor, keep the database container running, export the local `DATABASE_URL` shown above, and run `npx prisma studio`. Prisma Studio opens locally and lets you inspect `Store`, `StoreSettings`, and `Session` records.
+
+For SQL access:
+
+```sh
+docker compose exec db psql -U shipflow -d shipflow
+```
+
+Inside `psql`, use `\dt` to list tables. To reset one development shop, replace the example domain with the exact shop domain and run the targeted transaction below. `StoreSettings` is removed automatically with its `Store`; sessions are separate. This deletion is permanent, so inspect the matching rows or back up the database first.
+
+```sql
+BEGIN;
+SELECT "shopDomain", "onboardingStep", "mode" FROM "Store"
+WHERE "shopDomain" = 'example.myshopify.com';
+DELETE FROM "Session" WHERE shop = 'example.myshopify.com';
+DELETE FROM "Store" WHERE "shopDomain" = 'example.myshopify.com';
+COMMIT;
+```
+
+The next feature milestone connects editable Settings, validation recovery, Test Mode, and Go Live. [Implementation plan](../shipflow_docs/shipflow.milestones.md)
