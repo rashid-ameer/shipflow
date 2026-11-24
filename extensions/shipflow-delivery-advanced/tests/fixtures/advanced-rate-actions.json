@@ -1,0 +1,171 @@
+{
+  "payload": {
+    "export": "cart-delivery-options-transform-run",
+    "target": "cart.delivery-options.transform.run",
+    "input": {
+      "deliveryCustomization": {
+        "metafield": {
+          "jsonValue": {
+            "version": 1,
+            "ruleId": "test-rule",
+            "revision": "v1",
+            "rule": {
+              "name": "Fixture",
+              "active": true,
+              "scope": "advanced",
+              "weightUnit": "kg",
+              "conditions": [
+                {
+                  "field": "vendor",
+                  "operator": "equals",
+                  "value": "North"
+                },
+                {
+                  "field": "collection",
+                  "operator": "equals",
+                  "value": "gid://shopify/Collection/42"
+                },
+                {
+                  "field": "time",
+                  "operator": "between",
+                  "value": "09:00",
+                  "upper": "15:00"
+                }
+              ],
+              "ifActions": [
+                {
+                  "kind": "top",
+                  "operator": "equals",
+                  "match": "Express"
+                },
+                {
+                  "kind": "rename",
+                  "operator": "equals",
+                  "match": "Standard",
+                  "text": "Standard (3–5 days)"
+                },
+                {
+                  "kind": "message",
+                  "operator": "starts-with",
+                  "match": "Standard",
+                  "text": "Ships Monday"
+                },
+                {
+                  "kind": "cheapest"
+                }
+              ],
+              "elseActions": [
+                {
+                  "kind": "show-all"
+                }
+              ],
+              "methods": [
+                "SHIPPING",
+                "LOCAL"
+              ]
+            }
+          }
+        }
+      },
+      "cart": {
+        "attribute": null,
+        "buyerIdentity": {
+          "isAuthenticated": false,
+          "customer": null,
+          "purchasingCompany": null
+        },
+        "lines": [
+          {
+            "quantity": 1,
+            "attribute": null,
+            "sellingPlanAllocation": null,
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "product": {
+                "vendor": "North",
+                "productType": "Box",
+                "inCollections": [
+                  {
+                    "collectionId": "gid://shopify/Collection/42",
+                    "isMember": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "deliveryGroups": [
+          {
+            "deliveryAddress": null,
+            "deliveryOptions": [
+              {
+                "handle": "standard",
+                "title": "Standard",
+                "deliveryMethodType": "SHIPPING",
+                "cost": {
+                  "amount": "6.00"
+                }
+              },
+              {
+                "handle": "local",
+                "title": "Local delivery",
+                "deliveryMethodType": "LOCAL",
+                "cost": {
+                  "amount": "8.00"
+                }
+              },
+              {
+                "handle": "express",
+                "title": "Express",
+                "deliveryMethodType": "SHIPPING",
+                "cost": {
+                  "amount": "20.00"
+                }
+              },
+              {
+                "handle": "pickup",
+                "title": "Pickup",
+                "deliveryMethodType": "PICK_UP",
+                "cost": {
+                  "amount": "0.00"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "shop": {
+        "localTime": {
+          "date": "2026-11-25",
+          "inWindow": true
+        }
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "deliveryOptionMove": {
+            "deliveryOptionHandle": "express",
+            "index": 0
+          }
+        },
+        {
+          "deliveryOptionRename": {
+            "deliveryOptionHandle": "standard",
+            "title": "Standard (3–5 days) — Ships Monday"
+          }
+        },
+        {
+          "deliveryOptionHide": {
+            "deliveryOptionHandle": "local"
+          }
+        },
+        {
+          "deliveryOptionHide": {
+            "deliveryOptionHandle": "express"
+          }
+        }
+      ]
+    }
+  }
+}

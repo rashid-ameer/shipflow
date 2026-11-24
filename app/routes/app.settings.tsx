@@ -12,6 +12,10 @@ import {
 
 import { getShopLocale } from "../models/shop-locale.server";
 import {
+  changeDeliveryRuntime,
+  syncErrorMessage,
+} from "../models/delivery-customization.server";
+import {
   getOrCreateShop,
   nextOnboardingPath,
   OnboardingStep,
@@ -55,7 +59,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const store = await getOrCreateShop(session.shop);
   if (store.onboardingStep !== OnboardingStep.COMPLETE || !store.mode) {
     throw redirect(nextOnboardingPath(store.onboardingStep));
@@ -76,7 +80,9 @@ export async function action({ request }: ActionFunctionArgs) {
       );
     }
     try {
-      await switchOperatingMode(session.shop, mode);
+      await changeDeliveryRuntime(admin.graphql, session.shop, { mode }, (tx) =>
+        switchOperatingMode(session.shop, mode, tx),
+      );
       return { ok: true as const, kind: "mode" as const, error: null };
     } catch (error) {
       if (error instanceof Response) throw error;
@@ -84,7 +90,7 @@ export async function action({ request }: ActionFunctionArgs) {
         {
           ok: false as const,
           kind: "mode" as const,
-          error: "The operating mode could not be changed. Try again.",
+          error: syncErrorMessage(error),
         },
         { status: 500 },
       );
@@ -126,7 +132,12 @@ export async function action({ request }: ActionFunctionArgs) {
     const saved =
       parsed.mode === "ccs-rates"
         ? await updateBasicSettings(session.shop, parsed.value)
-        : await updateDeliverySettings(session.shop, parsed.value);
+        : await changeDeliveryRuntime(
+            admin.graphql,
+            session.shop,
+            { appEnabled: parsed.value.appEnabled },
+            (tx) => updateDeliverySettings(session.shop, parsed.value, tx),
+          );
     return {
       ok: true as const,
       kind: "settings" as const,
@@ -134,13 +145,13 @@ export async function action({ request }: ActionFunctionArgs) {
       fields: {},
       error: null,
     };
-  } catch {
+  } catch (error) {
     return data(
       {
         ok: false as const,
         kind: "settings" as const,
         fields: {},
-        error: "Your changes are still here. Select Save to try again.",
+        error: `${syncErrorMessage(error)} Your changes are still here.`,
       },
       { status: 500 },
     );

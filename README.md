@@ -6,13 +6,13 @@ Docker Compose runs the embedded React Router app and PostgreSQL. Prisma applies
 
 1. From `shipflow/`, copy `.env.example` to `.env`. Set a random hexadecimal database password (for example, generate one with `openssl rand -hex 32`). Compose uses it in the database connection URL.
 2. Create or select the **ShipFlow development app** in your Shopify Dev Dashboard. Put its client ID in `SHOPIFY_API_KEY` and its client secret in `SHOPIFY_API_SECRET` locally. Keep the secret in the ignored environment file.
-3. Set up an HTTPS tunnel to local port 3000 and set `SHOPIFY_APP_URL` to its public origin. If port 3000 is occupied, set `APP_PORT` and point the tunnel at that port.
+3. Route the named Cloudflare hostname `d5.genieapps.xyz` to `http://127.0.0.1:3013`. Set `SHOPIFY_APP_URL` and `APP_PORT` to match. Keep unrelated hostnames and their origin ports as configured.
 4. Set `client_id` in `shopify.app.toml` to the development app’s client ID. Its application and callback URLs use `https://d5.genieapps.xyz`. Keep `SCOPES` aligned with the app configuration as features are added.
 5. Run the commands below. Once the local health endpoint responds, apply the TOML configuration to the intended development app using Shopify CLI (`shopify app deploy` from this directory after verifying the selected app). Install that app on your development store and open ShipFlow in Shopify Admin.
 
 ```sh
 docker compose up --build -d --wait
-curl -fsS http://localhost:3000/health
+npm run preview:check -- http://127.0.0.1:3013
 docker compose logs -f app
 ```
 
@@ -20,26 +20,38 @@ docker compose logs -f app
 
 ### Shopify CLI preview and install link
 
-Shopify CLI runs the development web server and provides an install/preview link for a selected development store. Keep the Cloudflare tunnel forwarding `d5.genieapps.xyz` to local port 3000. Stop the Docker app before starting the CLI server because both use that port. PostgreSQL stays in Docker and is exposed only on local port 5433.
+Keep the named Cloudflare connector running with `d5.genieapps.xyz` mapped to `http://127.0.0.1:3013`. If the connector is stopped, restart it in a separate terminal with `cloudflared tunnel --config ~/.cloudflared/config.yml run`. Use one ShipFlow preview process for the development store. If the ShipFlow Docker app is running, stop that service before using the CLI preview. PostgreSQL stays in Docker and is exposed only on local port 5433.
 
 ```sh
-docker compose stop app
-docker compose up -d db
-set -a
-source .env
-set +a
-export DATABASE_URL="postgresql://shipflow:${POSTGRES_PASSWORD}@127.0.0.1:5433/shipflow"
-npx prisma migrate deploy
-shopify app dev --tunnel-url=https://d5.genieapps.xyz:3000
+npm run preview
 ```
 
-Choose your development store when prompted and open the install/preview URL printed by Shopify CLI. The CLI also supplies Shopify app credentials to its development process. To return to the Docker app, stop CLI with Ctrl+C and run `docker compose up -d app`.
+Choose your development store when prompted. The command starts PostgreSQL, applies migrations, and launches Shopify CLI on the fixed URL. When CLI reports ready, run `npm run preview:check` in a second terminal, then open its Shopify Admin preview link. A 502 from the check means the connector cannot reach the app on the configured local port. A response from a different app fails the check too.
+
+Use this same command after a restart to keep the Shopify preview URL stable. To return to the Docker app, stop the CLI with Ctrl+C and run `docker compose up -d app`.
 
 Docker uses Node 26.13.1 LTS and PostgreSQL 19. Compose stores database files in the `postgres19_data` volume.
 
 Run `docker compose up --build -d --wait` after source changes. Run `docker compose exec app npm run typecheck` to check TypeScript. Use `docker compose down` to stop the services. The named PostgreSQL volume persists sessions across restarts. When the tunnel origin changes, update both the environment and Shopify URLs, then recreate the app container and apply the development app configuration again.
 
-For the milestone persistence checks, keep PostgreSQL running, set `DATABASE_URL` to the local port `5433`, and run `npm run test:m1` and `npm run test:m2`. The tests remove their temporary shop records when finished.
+For the milestone persistence checks, keep PostgreSQL running, set `DATABASE_URL` to the local port `5433`, and run `npm run test:m1` through `npm run test:m4`. The tests remove their temporary shop records when finished.
+
+### Test Delivery Customization
+
+Run `npm run preview` on the selected development store to preview both Function extensions and grant the delivery customization scopes. ShipFlow uses port 3013, leaving port 3000 available for the other app.
+
+In ShipFlow, select Delivery Customization and create a Basic rule for Pickup in store. Add a Product tag condition and the Hide all rates IF action, then save as Active. Compare checkout for a product with that tag and one without it. Switch to CCS Rates and back to verify the rule pauses and resumes. Pickup must already be offered by Shopify for the test products.
+
+Run the WebAssembly fixtures from the project root with `npm --workspace shipflow-delivery-customization run test -- --run` and `npm --workspace shipflow-delivery-advanced run test -- --run`.
+
+### Test calculated shipping
+
+1. Open ShipFlow on a development store with Carrier Calculated Shipping enabled, select CCS Rates, and choose **Rates → Connect Carrier Service**. Approve shipping access if Shopify prompts. If Shopify reports CCS is unavailable, use the link in the Rates banner to check eligibility before reconnecting.
+2. Add **ShipFlow** as a carrier-calculated provider in the relevant Shopify shipping profile or market. Return to Rates and select **Refresh** to check setup.
+3. Create a scenario with a Cart Total condition of at least 100 in the store currency. Add a fixed Domestic rate of 10 and save the scenario as Active. Domestic starts with the Shopify store address country and can be edited in **Manage regions**.
+4. In Test Mode, compare carts totaling 99 and 100 before discounts using `shipflow` as the checkout first name. Compare with an ordinary name using a different cart or destination to avoid Shopify’s cached response. The Rates page shows whether Shopify supplied a name and how many rates the last request returned.
+
+The callback returns no Test Mode rates when Shopify omits the name. Fixed prices use the store currency. A callback in a different currency needs a matching rate currency before ShipFlow can quote it. Keep the stable HTTPS URL online throughout checkout testing.
 
 ## Inspect or reset local database data
 

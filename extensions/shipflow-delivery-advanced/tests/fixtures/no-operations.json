@@ -1,0 +1,16 @@
+{
+  "payload": {
+    "export": "cart-delivery-options-transform-run",
+    "target": "cart.delivery-options.transform.run",
+    "input": {
+      "deliveryCustomization": {
+        "metafield": null
+      },
+      "shop": { "localTime": { "date": "2026-11-25", "inWindow": false } },
+      "cart": { "attribute": null, "buyerIdentity": null, "lines": [], "deliveryGroups": [] }
+    },
+    "output": {
+      "operations": []
+    }
+  }
+}

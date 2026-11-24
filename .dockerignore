@@ -4,3 +4,6 @@ node_modules
 .shopify
 build
 .react-router
+extensions/*/node_modules
+extensions/*/generated
+extensions/*/dist

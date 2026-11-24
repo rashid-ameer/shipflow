@@ -1,0 +1,22 @@
+api_version = "2026-10"
+
+[[extensions]]
+name = "t:name"
+handle = "shipflow-delivery-advanced"
+type = "function"
+uid = "adb91968-705b-f714-1b84-6097f493ac5546a92aa3"
+description = "t:description"
+
+  [[extensions.targeting]]
+  target = "cart.delivery-options.transform.run"
+  input_query = "src/cart_delivery_options_transform_run.graphql"
+  input_variables = { namespace = "$app:shipflow", key = "delivery-rule" }
+  export = "cart-delivery-options-transform-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
+
+  [extensions.ui.paths]
+  create = "/app/delivery-customizations/new"
+  details = "/app/delivery-customizations"

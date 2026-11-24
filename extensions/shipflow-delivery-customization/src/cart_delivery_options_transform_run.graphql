@@ -1,0 +1,34 @@
+query CartDeliveryOptionsTransformRunInput(
+  $productTags: [String!]! = []
+  $customerTags: [String!]! = []
+) {
+  deliveryCustomization {
+    metafield(namespace: "$app:shipflow", key: "delivery-rule") {
+      jsonValue
+    }
+  }
+  cart {
+    cost {
+      totalAmount { amount }
+      subtotalAmount { amount }
+    }
+    discountApplications { totalAllocatedAmount { amount } }
+    buyerIdentity { customer { hasTags(tags: $customerTags) { tag hasTag } } }
+    lines {
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          sku
+          weight
+          weightUnit
+          product { hasTags(tags: $productTags) { tag hasTag } }
+        }
+      }
+    }
+    deliveryGroups {
+      deliveryAddress { countryCode provinceCode zip }
+      deliveryOptions { handle title deliveryMethodType cost { amount } }
+    }
+  }
+}

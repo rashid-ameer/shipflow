@@ -1,0 +1,18 @@
+{
+  "payload": {
+    "export": "cart-delivery-options-transform-run",
+    "target": "cart.delivery-options.transform.run",
+    "input": {
+      "deliveryCustomization": {
+        "metafield": null
+      },
+      "cart": {
+        "cost": { "totalAmount": { "amount": "0.00" }, "subtotalAmount": { "amount": "0.00" } },
+        "discountApplications": [], "buyerIdentity": null, "lines": [], "deliveryGroups": []
+      }
+    },
+    "output": {
+      "operations": []
+    }
+  }
+}

@@ -2,6 +2,8 @@ FROM node:26.13.1-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
+COPY extensions/shipflow-delivery-customization/package.json ./extensions/shipflow-delivery-customization/package.json
+COPY extensions/shipflow-delivery-advanced/package.json ./extensions/shipflow-delivery-advanced/package.json
 COPY prisma ./prisma
 RUN npm ci && npx prisma generate
 COPY . .

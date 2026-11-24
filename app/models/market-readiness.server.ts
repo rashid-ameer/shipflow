@@ -40,6 +40,7 @@ export const MARKET_READINESS_QUERY = `#graphql
                   rateGroups(first: ${MARKET_READINESS_LIMITS.rateGroups}) {
                     nodes {
                       carrierService {
+                        id
                         active
                         callbackUrl
                       }
@@ -69,6 +70,7 @@ export async function getMarketsDashboardData(
   graphql: AdminGraphql,
   shopDomain: string,
   appUrl = resolveShopifyAppUrl(process.env),
+  carrierId?: string | null,
 ): Promise<MarketsDashboardData> {
   const manageUrl = marketsAdminUrl(shopDomain);
 
@@ -91,6 +93,7 @@ export async function getMarketsDashboardData(
       result.data.markets.nodes,
       shopDomain,
       appUrl,
+      carrierId,
     );
 
     return {

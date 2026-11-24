@@ -64,6 +64,11 @@ model Store {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   settings          StoreSettings?
+  deliveryRules     DeliveryRule[]
+  carrierServiceId  String?        @unique
+  regions           ShippingRegion[]
+  scenarios         RateScenario[]
+  carrierRequests   CarrierRequest[]
 }
 
 model StoreSettings {
@@ -78,4 +83,94 @@ model StoreSettings {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model DeliveryRule {
+  id          String   @id @default(uuid())
+  storeId     String
+  name        String
+  active      Boolean
+  rule        Json
+  revision    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+}
+
+enum ShippingRegionKind {
+  DOMESTIC
+  CUSTOM
+  REST
+}
+
+model ShippingRegion {
+  id          String             @id @default(uuid())
+  storeId     String
+  name        String
+  kind        ShippingRegionKind
+  coverage    Json
+  createdAt   DateTime           @default(now())
+  store       Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  rates       FixedShippingRate[]
+
+  @@unique([storeId, id])
+  @@unique([storeId, name])
+}
+
+model RateScenario {
+  id          String              @id @default(uuid())
+  storeId     String
+  name        String
+  active      Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  conditions  RateCondition[]
+  rates       FixedShippingRate[]
+
+  @@unique([storeId, id])
+  @@index([storeId, active])
+}
+
+model RateCondition {
+  scenarioId String
+  position   Int
+  condition  Json
+  scenario   RateScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@id([scenarioId, position])
+}
+
+model FixedShippingRate {
+  id          String         @id @default(uuid())
+  storeId     String
+  scenarioId  String
+  regionId    String
+  position    Int
+  name        String
+  description String
+  amount      Int
+  currency    String
+  scenario    RateScenario   @relation(fields: [storeId, scenarioId], references: [storeId, id], onDelete: Cascade)
+  region      ShippingRegion @relation(fields: [storeId, regionId], references: [storeId, id], onDelete: Cascade)
+
+  @@index([storeId, scenarioId])
+  @@index([storeId, regionId])
+}
+
+model CarrierRequest {
+  id            String   @id @default(uuid())
+  storeId       String
+  receivedAt    DateTime @default(now())
+  country       String
+  province      String?
+  currency      String
+  testIdentity  String
+  reason        String
+  rateCount     Int
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, receivedAt])
 }

@@ -13,6 +13,7 @@ export type CheckoutDecisionInput = {
   customerFirstName?: string | null;
   multipleRates: MultipleRates;
   rounding: RoundingMethod;
+  unitsPerMajor?: number;
   fallbackRate?: CheckoutRate | null;
 };
 
@@ -33,13 +34,8 @@ export function decideCheckoutRates(
   input: CheckoutDecisionInput,
   evaluatePricing: () => readonly CheckoutRate[],
 ): CheckoutDecision {
-  if (!input.appEnabled) return { kind: "empty", reason: "app-disabled" };
-  if (input.mode !== "ccs-rates") {
-    return { kind: "empty", reason: "inactive-mode" };
-  }
-  if (input.testMode && !isTestCheckout(input.customerFirstName)) {
-    return { kind: "empty", reason: "test-mode" };
-  }
+  const blocked = checkoutBlockReason(input);
+  if (blocked) return { kind: "empty", reason: blocked };
 
   const pricedRates = evaluatePricing();
   if (pricedRates.length > 0) {
@@ -47,7 +43,7 @@ export function decideCheckoutRates(
       kind: "rates",
       source: "pricing",
       rates: selectMultipleRates(pricedRates, input.multipleRates).map((rate) =>
-        roundRate(rate, input.rounding),
+        roundRate(rate, input.rounding, input.unitsPerMajor),
       ),
     };
   }
@@ -56,11 +52,26 @@ export function decideCheckoutRates(
     return {
       kind: "rates",
       source: "fallback",
-      rates: [roundRate(input.fallbackRate, input.rounding)],
+      rates: [
+        roundRate(input.fallbackRate, input.rounding, input.unitsPerMajor),
+      ],
     };
   }
 
   return { kind: "empty", reason: "no-match" };
+}
+
+export function checkoutBlockReason(
+  input: Pick<
+    CheckoutDecisionInput,
+    "appEnabled" | "mode" | "testMode" | "customerFirstName"
+  >,
+) {
+  if (!input.appEnabled) return "app-disabled";
+  if (input.mode !== "ccs-rates") return "inactive-mode";
+  if (input.testMode && !isTestCheckout(input.customerFirstName))
+    return "test-mode";
+  return null;
 }
 
 export function isTestCheckout(customerFirstName?: string | null) {
@@ -98,9 +109,11 @@ export function selectMultipleRates(
 export function roundAmount(
   amountInMinorUnits: number,
   method: RoundingMethod,
+  unitsPerMajor = 100,
 ) {
   if (method === "none") return amountInMinorUnits;
-  const increment = method === "nearest-half" ? 50 : 100;
+  const increment =
+    method === "nearest-half" ? Math.max(1, unitsPerMajor / 2) : unitsPerMajor;
   if (method === "ceil")
     return Math.ceil(amountInMinorUnits / increment) * increment;
   if (method === "floor")
@@ -108,9 +121,17 @@ export function roundAmount(
   return Math.round(amountInMinorUnits / increment) * increment;
 }
 
-function roundRate(rate: CheckoutRate, method: RoundingMethod): CheckoutRate {
+function roundRate(
+  rate: CheckoutRate,
+  method: RoundingMethod,
+  unitsPerMajor?: number,
+): CheckoutRate {
   return {
     ...rate,
-    amountInMinorUnits: roundAmount(rate.amountInMinorUnits, method),
+    amountInMinorUnits: roundAmount(
+      rate.amountInMinorUnits,
+      method,
+      unitsPerMajor,
+    ),
   };
 }

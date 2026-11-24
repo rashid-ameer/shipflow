@@ -16,6 +16,8 @@ import {
   OperatingMode,
 } from "../models/shop-settings.server";
 import { POLARIS_URL } from "../polaris";
+import { deliveryPaths } from "../models/delivery-customization";
+import { ratesPaths } from "../models/calculated-rates";
 import { authenticate } from "../shopify.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -24,16 +26,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const isOnboardingRoute = url.pathname.startsWith("/app/onboarding");
 
-  if (
-    store.onboardingStep !== OnboardingStep.COMPLETE &&
-    !isOnboardingRoute
-  ) {
+  if (store.onboardingStep !== OnboardingStep.COMPLETE && !isOnboardingRoute) {
     throw redirect(nextOnboardingPath(store.onboardingStep) + url.search);
   }
-  if (
-    store.onboardingStep === OnboardingStep.COMPLETE &&
-    isOnboardingRoute
-  ) {
+  if (store.onboardingStep === OnboardingStep.COMPLETE && isOnboardingRoute) {
     throw redirect("/app" + url.search);
   }
 
@@ -61,9 +57,9 @@ export default function AppLayout() {
           </s-link>
           <s-link href="/app">Home</s-link>
           {mode === "ccs-rates" ? (
-            <s-link href="/app#setup-checklist">Rates</s-link>
+            <s-link href={ratesPaths.hub}>Rates</s-link>
           ) : (
-            <s-link href="/app#setup-checklist">Delivery customizations</s-link>
+            <s-link href={deliveryPaths.list}>Delivery customizations</s-link>
           )}
           <s-link href="/app/settings">Settings</s-link>
         </s-app-nav>

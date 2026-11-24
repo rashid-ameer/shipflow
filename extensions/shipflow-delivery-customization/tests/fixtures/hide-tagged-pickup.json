@@ -1,0 +1,140 @@
+{
+  "payload": {
+    "export": "cart-delivery-options-transform-run",
+    "target": "cart.delivery-options.transform.run",
+    "input": {
+      "deliveryCustomization": {
+        "metafield": {
+          "jsonValue": {
+            "version": 1,
+            "ruleId": "test-rule",
+            "revision": "v1",
+            "rule": {
+              "name": "Fixture",
+              "active": true,
+              "scope": "basic",
+              "weightUnit": "kg",
+              "conditions": [
+                {
+                  "field": "productTag",
+                  "operator": "equals",
+                  "value": "warehouse-only"
+                }
+              ],
+              "ifActions": [
+                {
+                  "kind": "hide-all"
+                }
+              ],
+              "elseActions": [
+                {
+                  "kind": "show-all"
+                }
+              ],
+              "methods": [
+                "PICK_UP"
+              ]
+            }
+          }
+        }
+      },
+      "cart": {
+        "cost": {
+          "totalAmount": {
+            "amount": "44.00"
+          },
+          "subtotalAmount": {
+            "amount": "44.00"
+          }
+        },
+        "discountApplications": [],
+        "buyerIdentity": null,
+        "lines": [
+          {
+            "quantity": 1,
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "sku": "BOX",
+              "weight": 1,
+              "weightUnit": "KILOGRAMS",
+              "product": {
+                "hasTags": [
+                  {
+                    "tag": "warehouse-only",
+                    "hasTag": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "deliveryGroups": [
+          {
+            "deliveryAddress": {
+              "countryCode": "CA",
+              "provinceCode": "ON",
+              "zip": "M5V"
+            },
+            "deliveryOptions": [
+              {
+                "handle": "standard",
+                "title": "Standard",
+                "deliveryMethodType": "SHIPPING",
+                "cost": {
+                  "amount": "5.00"
+                }
+              },
+              {
+                "handle": "pickup",
+                "title": "Pickup in store",
+                "deliveryMethodType": "PICK_UP",
+                "cost": {
+                  "amount": "0.00"
+                }
+              }
+            ]
+          },
+          {
+            "deliveryAddress": {
+              "countryCode": "CA",
+              "provinceCode": "ON",
+              "zip": "M5V"
+            },
+            "deliveryOptions": [
+              {
+                "handle": "pickup2",
+                "title": "Pickup in store",
+                "deliveryMethodType": "PICK_UP",
+                "cost": {
+                  "amount": "0.00"
+                }
+              },
+              {
+                "handle": "carrier2",
+                "title": "Carrier",
+                "deliveryMethodType": "SHIPPING",
+                "cost": {
+                  "amount": "10.00"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "deliveryOptionHide": {
+            "deliveryOptionHandle": "pickup"
+          }
+        },
+        {
+          "deliveryOptionHide": {
+            "deliveryOptionHandle": "pickup2"
+          }
+        }
+      ]
+    }
+  }
+}

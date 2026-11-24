@@ -2,6 +2,7 @@ import type {
   CcsStatus as CcsStatusType,
   OnboardingStep as OnboardingStepType,
   OperatingMode as OperatingModeType,
+  Prisma,
   Store,
   StoreSettings,
 } from "@prisma/client";
@@ -174,10 +175,10 @@ export async function updateBasicSettings(
 export async function updateDeliverySettings(
   shopDomain: string,
   input: DeliverySettingsInput,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<ShopWithSettings> {
-  const store = await getOrCreateShop(shopDomain);
-  const updated = await prisma.store.update({
-    where: { id: store.id, mode: OperatingMode.DELIVERY_CUSTOMIZATION },
+  const updated = await db.store.update({
+    where: { shopDomain, mode: OperatingMode.DELIVERY_CUSTOMIZATION },
     data: {
       appEnabled: input.appEnabled,
       settings: { update: { weightUnit: input.weightUnit } },
@@ -230,9 +231,17 @@ export async function completeOnboarding(
 export async function switchOperatingMode(
   shopDomain: string,
   mode: OperatingModeType,
+  db: Prisma.TransactionClient = prisma,
 ) {
-  const store = await getOrCreateShop(shopDomain);
-  if (store.onboardingStep !== OnboardingStep.COMPLETE || store.mode === null) {
+  const store = await db.store.findUnique({
+    where: { shopDomain },
+    include: { settings: true },
+  });
+  if (
+    !store ||
+    store.onboardingStep !== OnboardingStep.COMPLETE ||
+    store.mode === null
+  ) {
     throw new Response("Finish onboarding before switching modes.", {
       status: 409,
     });
@@ -242,7 +251,7 @@ export async function switchOperatingMode(
   const firstCcsSelection =
     mode === OperatingMode.CCS_RATES && store.ccsModeSelectedAt === null;
 
-  return prisma.store.update({
+  return db.store.update({
     where: { id: store.id },
     data: {
       mode,

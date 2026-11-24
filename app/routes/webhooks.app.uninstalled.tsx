@@ -12,6 +12,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (session) {
     await db.session.deleteMany({ where: { shop } });
   }
+  await db.store.updateMany({
+    where: { shopDomain: shop },
+    data: { carrierServiceId: null, ccsStatus: "UNKNOWN" },
+  });
 
   return new Response();
 };

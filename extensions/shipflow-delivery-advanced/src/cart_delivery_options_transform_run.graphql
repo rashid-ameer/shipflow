@@ -1,0 +1,46 @@
+query CartDeliveryOptionsTransformRunInput(
+  $collections: [ID!]! = []
+  $cartKey: String! = "_shipflow_unused"
+  $lineKey: String! = "_shipflow_unused"
+  $start: TimeWithoutTimezone! = "00:00:00"
+  $end: TimeWithoutTimezone! = "23:59:59"
+) {
+  deliveryCustomization {
+    metafield(namespace: "$app:shipflow", key: "delivery-rule") {
+      jsonValue
+    }
+  }
+  shop {
+    localTime {
+      date
+      inWindow: timeBetween(startTime: $start, endTime: $end)
+    }
+  }
+  cart {
+    attribute(key: $cartKey) { value }
+    buyerIdentity {
+      isAuthenticated
+      customer { numberOfOrders }
+      purchasingCompany { company { id } }
+    }
+    lines {
+      quantity
+      attribute(key: $lineKey) { value }
+      sellingPlanAllocation { sellingPlan { id } }
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          product {
+            vendor
+            productType
+            inCollections(ids: $collections) { collectionId isMember }
+          }
+        }
+      }
+    }
+    deliveryGroups {
+      deliveryAddress { zip }
+      deliveryOptions { handle title deliveryMethodType cost { amount } }
+    }
+  }
+}

@@ -1,4 +1,5 @@
 export type CarrierServiceSnapshot = {
+  id?: string;
   active: boolean;
   callbackUrl: string | null;
 };
@@ -59,8 +60,11 @@ function appOrigin(appUrl: string): string | null {
 function isShipFlowService(
   service: CarrierServiceSnapshot,
   expectedOrigin: string | null,
+  carrierId?: string | null,
 ) {
   if (!service.active || !service.callbackUrl || !expectedOrigin) return false;
+  if (carrierId !== undefined && (!carrierId || service.id !== carrierId))
+    return false;
 
   try {
     return new URL(service.callbackUrl).origin === expectedOrigin;
@@ -91,6 +95,7 @@ function effectiveShipping(
 function shippingUsesShipFlow(
   shipping: ShippingConfigurationSnapshot | null,
   expectedOrigin: string | null,
+  carrierId?: string | null,
 ) {
   if (!shipping?.isEnabled) return false;
 
@@ -104,7 +109,7 @@ function shippingUsesShipFlow(
 
     return Boolean(
       option.rateGroups?.nodes.some(({ carrierService }) =>
-        isShipFlowService(carrierService, expectedOrigin),
+        isShipFlowService(carrierService, expectedOrigin, carrierId),
       ),
     );
   });
@@ -118,6 +123,7 @@ export function buildMarketReadiness(
   marketSnapshots: MarketSnapshot[],
   shopDomain: string,
   appUrl: string,
+  carrierId?: string | null,
 ): MarketReadiness[] {
   const marketsById = new Map(
     marketSnapshots.map((market) => [market.id, market]),
@@ -133,6 +139,7 @@ export function buildMarketReadiness(
       ready: shippingUsesShipFlow(
         effectiveShipping(market, marketsById),
         expectedOrigin,
+        carrierId,
       ),
       manageUrl,
     }))

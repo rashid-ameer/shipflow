@@ -28,6 +28,38 @@ export function MarketsDashboard({
     return true;
   });
 
+  if (data.status === "available" && !data.marketDrivenShipping) {
+    const shippingUrl = new URL("/admin/settings/shipping", data.manageUrl)
+      .href;
+    return (
+      <s-section heading="Markets">
+        <s-stack gap="base">
+          <s-paragraph>
+            This store uses shipping profiles to control which calculated rates
+            are available.
+          </s-paragraph>
+          <s-stack direction="inline" gap="small" justifyContent="end">
+            <s-button
+              variant="secondary"
+              loading={refreshing}
+              onClick={onRefresh}
+            >
+              Refresh
+            </s-button>
+            <s-button
+              variant="secondary"
+              href={shippingUrl}
+              target="_blank"
+              icon="external"
+            >
+              Open Shipping and delivery
+            </s-button>
+          </s-stack>
+        </s-stack>
+      </s-section>
+    );
+  }
+
   return (
     <>
       <s-section heading="Markets">
@@ -74,28 +106,24 @@ export function MarketsDashboard({
         </s-stack>
       </s-section>
 
-      <s-modal
-        id="markets-modal"
-        heading="Markets"
-        size="large"
-      >
+      <s-modal id="markets-modal" heading="Markets" size="large">
         {data.status === "available" ? (
           <s-stack direction="block" gap="base">
             <s-paragraph>
               {readyCount} of {data.totalCount}{" "}
-              {data.totalCount === 1 ? "market is" : "markets are"} ready to
-              use ShipFlow calculated rates.
+              {data.totalCount === 1 ? "market is" : "markets are"} ready to use
+              ShipFlow calculated rates.
             </s-paragraph>
 
             {!allReady ? (
               <s-banner tone="info" heading="How market status works">
                 <s-paragraph>
                   Markets appear here automatically; you do not add them in
-                  ShipFlow. A market becomes Ready only after ShipFlow's
-                  Carrier Service is connected and enabled in that market's
-                  Shipping section. If ShipFlow is not offered as a provider,
-                  leave the market unchanged and complete Carrier Service
-                  setup in ShipFlow first. Then return and choose Refresh.
+                  ShipFlow. A market becomes Ready only after ShipFlow's Carrier
+                  Service is connected and enabled in that market's Shipping
+                  section. If ShipFlow is not offered as a provider, leave the
+                  market unchanged and complete Carrier Service setup in
+                  ShipFlow first. Then return and choose Refresh.
                 </s-paragraph>
                 <s-button
                   slot="secondary-actions"

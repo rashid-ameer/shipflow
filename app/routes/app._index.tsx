@@ -11,9 +11,18 @@ import {
 } from "react-router";
 
 import { MarketsDashboard } from "../components/markets-dashboard";
+import prisma from "../db.server";
+import { ratesPaths } from "../models/calculated-rates";
+import { getCarrierSetup } from "../models/carrier-shopify.server";
 import { getMarketsDashboardData } from "../models/market-readiness.server";
+import { deliveryPaths } from "../models/delivery-customization";
 import {
-  ccsNeedsAttention,
+  changeDeliveryRuntime,
+  getDeliveryRules,
+  getDeliveryStatus,
+  syncErrorMessage,
+} from "../models/delivery-customization.server";
+import {
   getOrCreateShop,
   nextOnboardingPath,
   OnboardingStep,
@@ -31,10 +40,45 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw redirect(nextOnboardingPath(store.onboardingStep));
   }
 
-  const markets = await getMarketsDashboardData(
-    (query) => admin.graphql(query),
-    session.shop,
-  );
+  const [markets, delivery, rates] = await Promise.all([
+    getMarketsDashboardData(
+      (query) => admin.graphql(query),
+      session.shop,
+      undefined,
+      store.carrierServiceId,
+    ),
+    store.mode === OperatingMode.DELIVERY_CUSTOMIZATION
+      ? getDeliveryRules(store.id).then(async (rules) => {
+          if (rules.length === 0) return { total: 0, active: 0 };
+          const status = await getDeliveryStatus(admin.graphql, rules, store);
+          return {
+            total: rules.length,
+            active: status.issue
+              ? null
+              : Object.values(status.states).filter(
+                  (state) => state === "active",
+                ).length,
+          };
+        })
+      : null,
+    store.mode === OperatingMode.CCS_RATES
+      ? Promise.all([
+          prisma.rateScenario.count({ where: { storeId: store.id } }),
+          prisma.rateScenario.count({
+            where: { storeId: store.id, active: true, rates: { some: {} } },
+          }),
+          prisma.carrierRequest.count({
+            where: { storeId: store.id, testIdentity: "test" },
+          }),
+          getCarrierSetup(admin.graphql, store),
+        ]).then(([scenarios, active, tests, setup]) => ({
+          scenarios,
+          active,
+          tests,
+          setup,
+        }))
+      : null,
+  ]);
 
   return {
     mode:
@@ -43,13 +87,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
         : ("delivery-customization" as const),
     testMode: store.testMode,
     appEnabled: store.appEnabled,
-    ccsNeedsAttention: ccsNeedsAttention(store.ccsStatus),
+    ccsNeedsAttention: !rates?.setup.connected,
     markets,
+    delivery,
+    rates,
   };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
   if (intent === "go-live") {
@@ -90,7 +136,20 @@ export async function action({ request }: ActionFunctionArgs) {
       { status: 400 },
     );
   }
-  await switchOperatingMode(session.shop, mode);
+  try {
+    await changeDeliveryRuntime(admin.graphql, session.shop, { mode }, (tx) =>
+      switchOperatingMode(session.shop, mode, tx),
+    );
+  } catch (error) {
+    return data(
+      {
+        ok: false as const,
+        intent: "switch-mode" as const,
+        error: syncErrorMessage(error),
+      },
+      { status: 422 },
+    );
+  }
   return {
     ok: true as const,
     intent: "switch-mode" as const,
@@ -185,8 +244,10 @@ export default function Dashboard() {
             onDismiss={() => setTestBannerHidden(true)}
           >
             <s-paragraph>
-              Only test checkouts with <s-text type="strong">shipflow</s-text>{" "}
-              as the customer first name can receive calculated rates.
+              Only requests where Shopify supplies{" "}
+              <s-text type="strong">shipflow</s-text> as the customer first name
+              can receive calculated rates. Change the cart or destination when
+              comparing tests so Shopify requests fresh rates.
             </s-paragraph>
             <s-button
               slot="secondary-actions"
@@ -205,18 +266,15 @@ export default function Dashboard() {
             heading="Calculated shipping needs attention"
           >
             <s-paragraph>
-              ShipFlow has not verified Carrier Calculated Shipping for this
-              store. Rate creation and checkout activation remain unavailable
-              until the store and shipping profile are ready.
+              Connect the Carrier Service and add ShipFlow to Shopify’s shipping
+              setup before expecting rates at checkout.
             </s-paragraph>
             <s-button
               slot="secondary-actions"
-              href="https://admin.shopify.com/settings/shipping"
-              target="_blank"
-              icon="external"
+              href={ratesPaths.hub}
               variant="secondary"
             >
-              Enable CCS
+              Open calculated shipping setup
             </s-button>
             <s-button
               slot="secondary-actions"
@@ -243,31 +301,89 @@ export default function Dashboard() {
                   done={!dashboard.ccsNeedsAttention}
                 />
                 <ChecklistItem
-                  label="Enable ShipFlow in a Shopify market"
-                  done={readyMarketCount > 0}
+                  label="Add ShipFlow to Shopify shipping"
+                  done={
+                    dashboard.markets.status === "available" &&
+                    dashboard.markets.marketDrivenShipping
+                      ? readyMarketCount > 0
+                      : Boolean(dashboard.rates?.setup.profileAttached)
+                  }
+                  href={ratesPaths.hub}
                 />
-                <ChecklistItem label="Create a scenario" done={false} />
-                <ChecklistItem label="Test in checkout" done={false} />
+                <ChecklistItem
+                  label="Create a scenario"
+                  done={Boolean(dashboard.rates?.scenarios)}
+                  href={ratesPaths.scenario("new")}
+                />
+                <ChecklistItem
+                  label="Test in checkout"
+                  done={Boolean(dashboard.rates?.tests)}
+                  href={ratesPaths.hub}
+                />
               </>
             ) : (
               <>
-                <ChecklistItem label="Create a customization" done={false} />
+                <ChecklistItem
+                  label="Create a customization"
+                  done={Boolean(dashboard.delivery?.total)}
+                  href={deliveryPaths.create}
+                />
                 <ChecklistItem label="Test in checkout" done={false} />
               </>
             )}
           </s-stack>
         </s-section>
 
-        <s-section heading="Activity">
-          <s-grid
-            gridTemplateColumns="repeat(auto-fit, minmax(180px, 1fr))"
-            gap="base"
-          >
-            <Metric label={isCcs ? "Scenarios" : "Customizations"} value="0" />
-            <Metric label="Active rules" value="0" />
-            <Metric label="Checkout tests" value="0" />
-          </s-grid>
-        </s-section>
+        {dashboard.delivery ? (
+          <s-section heading="Delivery customizations">
+            <s-stack gap="base">
+              <s-stack direction="inline" gap="base">
+                <s-text>{dashboard.delivery.total} saved</s-text>
+                <s-text>
+                  {dashboard.delivery.active === null
+                    ? "Checkout status unavailable"
+                    : `${dashboard.delivery.active} active at checkout`}
+                </s-text>
+              </s-stack>
+              <s-paragraph>
+                Shopify allows up to 25 active delivery customizations per store
+                across all apps.
+              </s-paragraph>
+              <s-stack direction="inline" justifyContent="end">
+                <s-button
+                  variant="secondary"
+                  href={
+                    dashboard.delivery.total > 0
+                      ? deliveryPaths.list
+                      : deliveryPaths.create
+                  }
+                >
+                  View
+                </s-button>
+              </s-stack>
+            </s-stack>
+          </s-section>
+        ) : (
+          <s-section heading="Activity">
+            <s-grid
+              gridTemplateColumns="repeat(auto-fit, minmax(180px, 1fr))"
+              gap="base"
+            >
+              <Metric
+                label="Scenarios"
+                value={String(dashboard.rates?.scenarios ?? 0)}
+              />
+              <Metric
+                label="Active scenarios with rates"
+                value={String(dashboard.rates?.active ?? 0)}
+              />
+              <Metric
+                label="Checkout tests"
+                value={String(dashboard.rates?.tests ?? 0)}
+              />
+            </s-grid>
+          </s-section>
+        )}
 
         <s-section heading="Operating mode">
           <s-box padding="base" border="base" borderRadius="base">
@@ -363,13 +479,25 @@ export default function Dashboard() {
   );
 }
 
-function ChecklistItem({ label, done }: { label: string; done: boolean }) {
+function ChecklistItem({
+  label,
+  done,
+  href,
+}: {
+  label: string;
+  done: boolean;
+  href?: string;
+}) {
   return (
     <s-grid gridTemplateColumns="auto 1fr" gap="small-200" alignItems="center">
       <s-badge tone={done ? "success" : "neutral"}>
         {done ? "Done" : "Next"}
       </s-badge>
-      <s-text>{label}</s-text>
+      {href && !done ? (
+        <s-link href={href}>{label}</s-link>
+      ) : (
+        <s-text>{label}</s-text>
+      )}
     </s-grid>
   );
 }
