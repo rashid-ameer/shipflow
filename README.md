@@ -39,7 +39,7 @@ Docker uses Node 26.13.1 LTS and PostgreSQL 19. Compose stores database files in
 
 Run `docker compose up --build -d --wait` after source changes. Run `docker compose exec app npm run typecheck` to check TypeScript. Use `docker compose down` to stop the services. The named PostgreSQL volume persists sessions across restarts. When the tunnel origin changes, update both the environment and Shopify URLs, then recreate the app container and apply the development app configuration again.
 
-For the M1 persistence check, keep PostgreSQL running, set `DATABASE_URL` to the local port `5433`, and run `npm run test:m1`. The test uses a unique temporary shop domain and removes it when finished.
+For the milestone persistence checks, keep PostgreSQL running, set `DATABASE_URL` to the local port `5433`, and run `npm run test:m1` and `npm run test:m2`. The tests remove their temporary shop records when finished.
 
 ## Inspect or reset local database data
 
@@ -62,4 +62,4 @@ DELETE FROM "Store" WHERE "shopDomain" = 'example.myshopify.com';
 COMMIT;
 ```
 
-The next feature milestone connects editable Settings, validation recovery, Test Mode, and Go Live. [Implementation plan](../shipflow_docs/shipflow.milestones.md)
+[Implementation plan](../shipflow_docs/shipflow.milestones.md)

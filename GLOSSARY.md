@@ -20,6 +20,14 @@ _Avoid_: Pro, CCS plan
 A CCS Rates state intended to limit calculated-rate evaluation to documented test checkout identities before a store goes live.
 _Avoid_: Trial, sandbox plan
 
+**App status**:
+Whether ShipFlow is enabled to evaluate checkout requests. Disabling it pauses checkout evaluation without deleting saved configuration.
+_Avoid_: Installation status, subscription status
+
+**Checkout decision order**:
+The fixed sequence ShipFlow uses to decide whether checkout evaluation stops, returns calculated rates, or returns a configured fallback.
+_Avoid_: Random fallback, best-effort order
+
 **CCS readiness**:
 Whether the Shopify store and its shipping configuration can call ShipFlow for calculated rates. An unknown status is treated as needing attention until verified.
 _Avoid_: Pro eligibility, paid access

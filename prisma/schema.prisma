@@ -52,17 +52,18 @@ enum CcsStatus {
 }
 
 model Store {
-  id                String          @id @default(cuid())
-  shopDomain        String          @unique
-  onboardingStep    OnboardingStep  @default(WELCOME)
+  id                String         @id @default(cuid())
+  shopDomain        String         @unique
+  onboardingStep    OnboardingStep @default(WELCOME)
   mode              OperatingMode?
-  testMode           Boolean         @default(true)
-  ccsStatus          CcsStatus       @default(UNKNOWN)
+  appEnabled        Boolean        @default(true)
+  testMode          Boolean        @default(true)
+  ccsStatus         CcsStatus      @default(UNKNOWN)
   ccsModeSelectedAt DateTime?
-  onboardedAt        DateTime?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  settings           StoreSettings?
+  onboardedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  settings          StoreSettings?
 }
 
 model StoreSettings {
@@ -72,6 +73,8 @@ model StoreSettings {
   distanceUnit      String   @default("km")
   dimensionUnit     String   @default("cm")
   volumetricDivisor Float    @default(5000)
+  multipleRates     String   @default("all")
+  rounding          String   @default("none")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)

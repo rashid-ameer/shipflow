@@ -7,6 +7,15 @@ import type {
 } from "@prisma/client";
 
 import prisma from "../db.server";
+import {
+  validateUnitFormValues,
+  type BasicSettingsInput,
+  type DeliverySettingsInput,
+  type DimensionUnit,
+  type DistanceUnit,
+  type UnitInput,
+  type WeightUnit,
+} from "./shipping-settings";
 
 const OnboardingStep = {
   WELCOME: "WELCOME",
@@ -26,21 +35,7 @@ const CcsStatus = {
   DISABLED: "DISABLED",
 } as const satisfies Record<string, CcsStatusType>;
 
-const WEIGHT_UNITS = ["g", "kg", "lb", "oz"] as const;
-const DISTANCE_UNITS = ["km", "mi"] as const;
-const DIMENSION_UNITS = ["mm", "cm", "m", "in", "ft"] as const;
-
-export type WeightUnit = (typeof WEIGHT_UNITS)[number];
-export type DistanceUnit = (typeof DISTANCE_UNITS)[number];
-export type DimensionUnit = (typeof DIMENSION_UNITS)[number];
 export type ShopWithSettings = Store & { settings: StoreSettings };
-
-export type UnitInput = {
-  weightUnit: WeightUnit;
-  distanceUnit: DistanceUnit;
-  dimensionUnit: DimensionUnit;
-  volumetricDivisor: number;
-};
 
 export type UnitValidationResult =
   | { ok: true; value: UnitInput }
@@ -76,22 +71,8 @@ export function parseUnits(formData: FormData): UnitValidationResult {
     dimensionUnit: String(formData.get("dimensionUnit") ?? ""),
     volumetricDivisor: String(formData.get("volumetricDivisor") ?? ""),
   };
-  const fields: Partial<Record<keyof UnitInput, string>> = {};
+  const fields = validateUnitFormValues(values);
   const volumetricDivisor = Number(values.volumetricDivisor);
-
-  if (!WEIGHT_UNITS.includes(values.weightUnit as WeightUnit)) {
-    fields.weightUnit = "Choose a weight unit.";
-  }
-  if (!DISTANCE_UNITS.includes(values.distanceUnit as DistanceUnit)) {
-    fields.distanceUnit = "Choose a distance unit.";
-  }
-  if (!DIMENSION_UNITS.includes(values.dimensionUnit as DimensionUnit)) {
-    fields.dimensionUnit = "Choose a dimension unit.";
-  }
-  if (!Number.isFinite(volumetricDivisor) || volumetricDivisor <= 0) {
-    fields.volumetricDivisor =
-      "Enter a volumetric divisor greater than 0.";
-  }
 
   if (Object.keys(fields).length > 0) return { ok: false, fields, values };
 
@@ -106,7 +87,9 @@ export function parseUnits(formData: FormData): UnitValidationResult {
   };
 }
 
-export async function getOrCreateShop(shopDomain: string): Promise<ShopWithSettings> {
+export async function getOrCreateShop(
+  shopDomain: string,
+): Promise<ShopWithSettings> {
   const store = await prisma.store.upsert({
     where: { shopDomain },
     create: { shopDomain, settings: { create: {} } },
@@ -152,6 +135,75 @@ export async function updateUnits(shopDomain: string, input: UnitInput) {
     data: { settings: { update: input } },
     include: { settings: true },
   });
+}
+
+export async function updateBasicSettings(
+  shopDomain: string,
+  input: BasicSettingsInput,
+): Promise<ShopWithSettings> {
+  const store = await getOrCreateShop(shopDomain);
+  const {
+    appEnabled,
+    weightUnit,
+    distanceUnit,
+    dimensionUnit,
+    volumetricDivisor,
+    multipleRates,
+    rounding,
+  } = input;
+  const updated = await prisma.store.update({
+    where: { id: store.id, mode: OperatingMode.CCS_RATES },
+    data: {
+      appEnabled,
+      settings: {
+        update: {
+          weightUnit,
+          distanceUnit,
+          dimensionUnit,
+          volumetricDivisor,
+          multipleRates,
+          rounding,
+        },
+      },
+    },
+    include: { settings: true },
+  });
+  return updated as ShopWithSettings;
+}
+
+export async function updateDeliverySettings(
+  shopDomain: string,
+  input: DeliverySettingsInput,
+): Promise<ShopWithSettings> {
+  const store = await getOrCreateShop(shopDomain);
+  const updated = await prisma.store.update({
+    where: { id: store.id, mode: OperatingMode.DELIVERY_CUSTOMIZATION },
+    data: {
+      appEnabled: input.appEnabled,
+      settings: { update: { weightUnit: input.weightUnit } },
+    },
+    include: { settings: true },
+  });
+  return updated as ShopWithSettings;
+}
+
+export async function setTestMode(shopDomain: string, enabled: boolean) {
+  const result = await prisma.store.updateMany({
+    where: {
+      shopDomain,
+      onboardingStep: OnboardingStep.COMPLETE,
+      mode: OperatingMode.CCS_RATES,
+    },
+    data: { testMode: enabled },
+  });
+  if (result.count === 0) {
+    throw new Response(
+      "Test Mode is available only while CCS Rates is active.",
+      {
+        status: 409,
+      },
+    );
+  }
 }
 
 export async function completeOnboarding(
@@ -206,3 +258,4 @@ export function ccsNeedsAttention(status: CcsStatusType) {
 }
 
 export { CcsStatus, OnboardingStep, OperatingMode };
+export type { DimensionUnit, DistanceUnit, UnitInput, WeightUnit };

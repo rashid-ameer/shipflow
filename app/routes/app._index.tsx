@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   data,
   redirect,
@@ -18,6 +19,7 @@ import {
   OnboardingStep,
   OperatingMode,
   parseOperatingMode,
+  setTestMode,
   switchOperatingMode,
 } from "../models/shop-settings.server";
 import { authenticate } from "../shopify.server";
@@ -40,8 +42,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ? ("ccs-rates" as const)
         : ("delivery-customization" as const),
     testMode: store.testMode,
+    appEnabled: store.appEnabled,
     ccsNeedsAttention: ccsNeedsAttention(store.ccsStatus),
-    settings: store.settings,
     markets,
   };
 }
@@ -49,37 +51,81 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
-  if (formData.get("intent") !== "switch-mode") {
-    return data({ ok: false, error: "Unknown dashboard action." }, { status: 400 });
+  const intent = formData.get("intent");
+  if (intent === "go-live") {
+    try {
+      await setTestMode(session.shop, false);
+      return { ok: true as const, intent: "go-live" as const, error: null };
+    } catch (error) {
+      return data(
+        {
+          ok: false as const,
+          error:
+            error instanceof Response
+              ? "Go Live is available only in CCS Rates mode."
+              : "Test Mode is still on. Try again.",
+        },
+        { status: error instanceof Response ? error.status : 500 },
+      );
+    }
+  }
+  if (intent !== "switch-mode") {
+    return data(
+      {
+        ok: false as const,
+        intent: "unknown" as const,
+        error: "Unknown dashboard action.",
+      },
+      { status: 400 },
+    );
   }
   const mode = parseOperatingMode(formData.get("mode"));
   if (!mode) {
-    return data({ ok: false, error: "Choose a valid operating mode." }, { status: 400 });
+    return data(
+      {
+        ok: false as const,
+        intent: "switch-mode" as const,
+        error: "Choose a valid operating mode.",
+      },
+      { status: 400 },
+    );
   }
   await switchOperatingMode(session.shop, mode);
-  return { ok: true, error: null };
+  return {
+    ok: true as const,
+    intent: "switch-mode" as const,
+    error: null,
+  };
 }
 
 export default function Dashboard() {
   const dashboard = useLoaderData<typeof loader>();
+  const shopify = useAppBridge();
   const switcher = useFetcher<typeof action>();
+  const goLiveFetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
   const switchModalRef = useRef<HTMLElementTagNameMap["s-modal"] | null>(null);
+  const goLiveModalRef = useRef<HTMLElementTagNameMap["s-modal"] | null>(null);
   const [targetMode, setTargetMode] = useState<
     "delivery-customization" | "ccs-rates" | null
   >(null);
   const [testBannerHidden, setTestBannerHidden] = useState(false);
   const isCcs = dashboard.mode === "ccs-rates";
   const switching = switcher.state !== "idle";
+  const goingLive = goLiveFetcher.state !== "idle";
   const refreshingMarkets = revalidator.state !== "idle";
   const readyMarketCount =
-    dashboard.markets.status === "available"
-      ? dashboard.markets.readyCount
-      : 0;
+    dashboard.markets.status === "available" ? dashboard.markets.readyCount : 0;
 
   useEffect(() => {
     setTestBannerHidden(false);
   }, [dashboard.testMode, dashboard.mode]);
+
+  useEffect(() => {
+    if (goLiveFetcher.state !== "idle" || !goLiveFetcher.data?.ok) return;
+    goLiveModalRef.current?.hideOverlay();
+    shopify.toast.show("Test Mode turned off");
+  }, [goLiveFetcher.state, goLiveFetcher.data, shopify]);
 
   const requestSwitch = (mode: "delivery-customization" | "ccs-rates") => {
     setTargetMode(mode);
@@ -95,12 +141,16 @@ export default function Dashboard() {
     switchModalRef.current?.hideOverlay();
   };
 
+  const confirmGoLive = () => {
+    goLiveFetcher.submit({ intent: "go-live" }, { method: "post" });
+  };
+
   const currentModeLabel = isCcs ? "CCS Rates" : "Delivery Customization";
   const alternateMode = isCcs ? "delivery-customization" : "ccs-rates";
   const alternateModeLabel = isCcs ? "Delivery Customization" : "CCS Rates";
 
   return (
-    <s-page heading="Home" inlineSize="base">
+    <s-page heading="Home">
       <s-stack direction="block" gap="base">
         <s-box paddingBlockEnd="small">
           <s-stack direction="inline" gap="small-200">
@@ -112,6 +162,9 @@ export default function Dashboard() {
                 {dashboard.testMode ? "Test" : "Live"}
               </s-badge>
             ) : null}
+            <s-badge tone={dashboard.appEnabled ? "success" : "critical"}>
+              {dashboard.appEnabled ? "Enabled" : "Disabled"}
+            </s-badge>
           </s-stack>
         </s-box>
 
@@ -121,7 +174,10 @@ export default function Dashboard() {
           onRefresh={() => revalidator.revalidate()}
         />
 
-        {isCcs && dashboard.testMode && !testBannerHidden ? (
+        {isCcs &&
+        dashboard.appEnabled &&
+        dashboard.testMode &&
+        !testBannerHidden ? (
           <s-banner
             tone="info"
             heading="Test Mode is on"
@@ -129,15 +185,25 @@ export default function Dashboard() {
             onDismiss={() => setTestBannerHidden(true)}
           >
             <s-paragraph>
-              Calculated rates are intended only for test checkouts using
-              shipflow as the customer first name. Going live is part of the next
-              settings milestone.
+              Only test checkouts with <s-text type="strong">shipflow</s-text>{" "}
+              as the customer first name can receive calculated rates.
             </s-paragraph>
+            <s-button
+              slot="secondary-actions"
+              variant="secondary"
+              disabled={goingLive || switching}
+              onClick={() => goLiveModalRef.current?.showOverlay()}
+            >
+              Go Live
+            </s-button>
           </s-banner>
         ) : null}
 
         {isCcs && dashboard.ccsNeedsAttention ? (
-          <s-banner tone="warning" heading="Calculated shipping needs attention">
+          <s-banner
+            tone="warning"
+            heading="Calculated shipping needs attention"
+          >
             <s-paragraph>
               ShipFlow has not verified Carrier Calculated Shipping for this
               store. Rate creation and checkout activation remain unavailable
@@ -206,18 +272,13 @@ export default function Dashboard() {
         <s-section heading="Operating mode">
           <s-box padding="base" border="base" borderRadius="base">
             <s-stack direction="block" gap="base">
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-text type="strong">Current mode</s-text>
-                <s-badge tone={isCcs ? "info" : "success"}>
-                  {currentModeLabel}
-                </s-badge>
-              </s-stack>
               <s-paragraph>
-                You are currently using {currentModeLabel} at checkout.
+                {currentModeLabel} is the selected operating mode.
               </s-paragraph>
               <s-stack direction="inline">
                 <s-button
                   variant="secondary"
+                  disabled={goingLive || switching}
                   onClick={() => requestSwitch(alternateMode)}
                 >
                   Switch to {alternateModeLabel}
@@ -257,6 +318,45 @@ export default function Dashboard() {
           onClick={confirmSwitch}
         >
           Confirm switch
+        </s-button>
+      </s-modal>
+
+      <s-modal
+        id="go-live-modal"
+        ref={goLiveModalRef as never}
+        heading="Go live with CCS Rates?"
+      >
+        <s-stack direction="block" gap="base">
+          {goLiveFetcher.state === "idle" &&
+          goLiveFetcher.data &&
+          !goLiveFetcher.data.ok ? (
+            <s-banner tone="critical" heading="Could not go live">
+              <s-paragraph>{goLiveFetcher.data.error}</s-paragraph>
+            </s-banner>
+          ) : null}
+          <s-paragraph>
+            Test Mode will turn off. Eligible customer checkouts can receive
+            ShipFlow rates after Carrier Calculated Shipping and the market's
+            shipping setup are ready.
+          </s-paragraph>
+        </s-stack>
+        <s-button
+          slot="secondary-actions"
+          commandFor="go-live-modal"
+          command="--hide"
+          variant="secondary"
+          disabled={goingLive}
+        >
+          Cancel
+        </s-button>
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          loading={goingLive}
+          disabled={goingLive}
+          onClick={confirmGoLive}
+        >
+          Confirm Go Live
         </s-button>
       </s-modal>
     </s-page>

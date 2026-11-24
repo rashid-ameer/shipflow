@@ -8,6 +8,7 @@
     "test:m1": "vite-node tests/app-url.test.ts && vite-node tests/m1-persistence.test.ts && vite-node tests/market-readiness.test.ts",
     "test:markets": "vite-node tests/market-readiness.test.ts",
     "test:units": "vite-node tests/units-form-state.test.ts",
+    "test:m2": "vite-node tests/shipping-settings.test.ts && vite-node tests/checkout-decision.test.ts && vite-node tests/m2-persistence.test.ts",
     "dev": "react-router dev --host 0.0.0.0"
   },
   "type": "module",
