@@ -2,6 +2,8 @@ import type { Store, StoreSettings } from "@prisma/client";
 import prisma from "../db.server";
 import {
   evaluateCarrierCart,
+  matchRegion,
+  productConditionFields,
   type CarrierCart,
   type PricingResult,
 } from "./calculated-rates";
@@ -13,6 +15,8 @@ import {
 import { MULTIPLE_RATE_BEHAVIORS, ROUNDING_METHODS } from "./shipping-settings";
 import { addPricingInputs } from "./checkout-pricing-inputs.server";
 import type { AdminQuery } from "./delivery-customization-admin.server";
+import { catalogId } from "./catalog-shopify.server";
+import { dimensionalFactor } from "./product-dimensions";
 import { loadCombinedRules } from "./combined-rates.server";
 
 type PricingStore = Pick<
@@ -25,10 +29,13 @@ type PricingStore = Pick<
   | "ccsStatus"
   | "carrierServiceId"
 > & {
-  settings: Pick<
-    StoreSettings,
-    "multipleRates" | "rounding" | "discountedCartTotal"
-  > | null;
+  settings:
+    | (Pick<
+        StoreSettings,
+        "multipleRates" | "rounding" | "discountedCartTotal"
+      > &
+        Partial<Pick<StoreSettings, "volumetricDivisor">>)
+    | null;
 };
 
 export function getPricingStore(id: string) {
@@ -47,6 +54,7 @@ export function getPricingStore(id: string) {
           multipleRates: true,
           rounding: true,
           discountedCartTotal: true,
+          volumetricDivisor: true,
         },
       },
     },
@@ -100,9 +108,94 @@ export async function evaluateStoreCart(
   const active = scenarioIds
     ? scenarios.map((scenario) => ({ ...scenario, active: true }))
     : scenarios;
+  const region = matchRegion(regions, cart.destination);
+  const eligible = active.flatMap((scenario) => {
+    if (!scenario.active || !region) return [];
+    const rates = scenario.rates.filter(
+      (rate) =>
+        rate.active !== false &&
+        rate.regionId === region.id &&
+        rate.currency === cart.currency,
+    );
+    return rates.length ? [{ conditions: scenario.conditions, rates }] : [];
+  });
+  const needsCatalog = eligible.some(
+    ({ conditions, rates }) =>
+      conditions.some(
+        ({ field, scope }) =>
+          productConditionFields[field] ||
+          /(?:Length|Width|Height|Volume|Volumetric)$/.test(field) ||
+          scope?.startsWith("tag") ||
+          scope?.startsWith("sku"),
+      ) ||
+      rates.some(
+        ({ pricing }) =>
+          pricing?.filter ||
+          pricing?.basis === "volume" ||
+          pricing?.basis === "volumetric" ||
+          (pricing?.packing &&
+            (pricing.packing.method === "dimensions" ||
+              ["volume", "volumetric"].includes(pricing.packing.split))),
+      ),
+  );
+  const ids = needsCatalog
+    ? [
+        ...new Set(
+          cart.lines.flatMap(({ variantId }) => {
+            const id = catalogId(variantId);
+            return id ? [id] : [];
+          }),
+        ),
+      ]
+    : [];
+  const variants = ids.length
+    ? await prisma.catalogVariant.findMany({
+        where: { storeId: store.id, id: { in: ids } },
+        select: {
+          id: true,
+          length: true,
+          width: true,
+          height: true,
+          sku: true,
+          barcode: true,
+          product: {
+            select: {
+              title: true,
+              tags: true,
+              vendor: true,
+              productType: true,
+            },
+          },
+        },
+      })
+    : [];
+  const byVariant = new Map(
+    variants.map((variant) => [String(variant.id), variant]),
+  );
+  const sized = {
+    ...cart,
+    volumetricDivisor: dimensionalFactor(store.settings?.volumetricDivisor),
+    lines: variants.length
+      ? cart.lines.map((line) => {
+          const variant = byVariant.get(line.variantId ?? "");
+          if (!variant) return line;
+          const { length, width, height, product } = variant;
+          return {
+            ...line,
+            dimensions: { length, width, height },
+            name: line.name ?? product.title,
+            sku: line.sku ?? variant.sku,
+            barcode: line.barcode ?? variant.barcode,
+            vendor: line.vendor ?? product.vendor,
+            tags: product.tags,
+            productType: product.productType,
+          };
+        })
+      : cart.lines,
+  };
   const hydrated = options.getGraphql
-    ? await addPricingInputs(cart, regions, active, options.getGraphql)
-    : cart;
+    ? await addPricingInputs(sized, regions, active, options.getGraphql)
+    : sized;
   const effective =
     store.settings?.discountedCartTotal &&
     hydrated.discountedSubtotal !== undefined

@@ -13,6 +13,7 @@
     "test:m4": "vite-node tests/calculated-rates.test.ts && vite-node tests/m4-carrier-persistence.test.ts",
     "test:m6": "vite-node tests/cart-product-pricing.test.ts && vite-node tests/m6-pricing-persistence.test.ts",
     "test:m7": "vite-node tests/combined-rates.test.ts && vite-node tests/m7-combination-persistence.test.ts",
+    "test:m8": "vite-node tests/m8-catalog-packing.test.ts",
     "preview:check": "node scripts/check-preview.mjs",
     "preview": "node scripts/start-preview.mjs",
     "dev": "react-router dev --host 0.0.0.0"

@@ -1,3 +1,5 @@
+import { emptyPacking } from "../models/package-pricing";
+import { PackagePricingEditor } from "./package-pricing-editor";
 import { operatorLabels, type RateDraft } from "../models/calculated-rates";
 import { textOperators } from "../models/checkout-values";
 import {
@@ -42,6 +44,8 @@ const roundingOptions: Record<RoundingMethod, string> = {
 export function rateSummary(rate: RateDraft, currency: string) {
   const pricing = rate.pricing;
   if (!pricing || pricing.mode === "flat") return `${currency} ${rate.price}`;
+  if (pricing.mode === "package")
+    return `${pricing.packing?.packages.length ?? 0} packages`;
   const subject = pricing.criteria === "product" ? "Product" : "Cart";
   const basis = pricingBases[pricing.basis].toLowerCase();
   return pricing.mode === "tiered"
@@ -77,11 +81,13 @@ export function RatePricingEditor({
   value,
   currency,
   weightUnit,
+  dimensionUnit,
   change,
 }: {
   value: RateDraft;
   currency: string;
   weightUnit: string;
+  dimensionUnit: string;
   change: (value: RateDraft) => void;
 }) {
   const pricing = value.pricing ?? defaultPricing;
@@ -92,7 +98,11 @@ export function RatePricingEditor({
       ? "items"
       : pricing.basis === "weight"
         ? (pricing.weightUnit ?? weightUnit)
-        : currency;
+        : pricing.basis === "volume"
+          ? "cm³"
+          : pricing.basis === "volumetric"
+            ? "kg"
+            : currency;
   const amountUnit = pricing.amountType === "percent" ? "%" : currency;
   const tiers = pricing.tiers ?? [];
   const increment = pricing.increment ?? defaultIncrement;
@@ -148,8 +158,18 @@ export function RatePricingEditor({
         <s-option value="flat">Flat rate</s-option>
         <s-option value="tiered">Tiered rates</s-option>
         <s-option value="incremental">Base rate with increment</s-option>
+        <s-option value="package">Based on package</s-option>
       </s-select>
-      {pricing.mode === "flat" ? (
+      {pricing.mode === "package" ? (
+        <PackagePricingEditor
+          pricing={pricing}
+          packing={pricing.packing ?? emptyPacking}
+          currency={currency}
+          weightUnit={weightUnit}
+          dimensionUnit={dimensionUnit}
+          change={update}
+        />
+      ) : pricing.mode === "flat" ? (
         <Field
           required
           label={`Fixed price (${currency})`}
@@ -297,7 +317,7 @@ export function RatePricingEditor({
                   <s-option value="group">Group by each filter value</s-option>
                 ) : null}
               </s-select>
-              {pricing.basis === "weight" ? (
+              {["weight", "volume", "volumetric"].includes(pricing.basis) ? (
                 <s-checkbox
                   label="Use individual unit weight"
                   checked={pricing.individual ?? false}

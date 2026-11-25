@@ -16,11 +16,21 @@ import {
 } from "./checkout-values";
 import { ROUNDING_METHODS, type RoundingMethod } from "./shipping-settings";
 
+import {
+  packByAttributes,
+  packByDimensions,
+  validatePacking,
+  type PackagePricing,
+} from "./package-pricing";
+import { dimensionalFactor, totalVolume } from "./product-dimensions";
+
 export const pricingBases = {
   total: "Total",
   quantity: "Quantity",
   weight: "Weight",
   price: "Unit price",
+  volume: "Volume",
+  volumetric: "Volumetric weight",
 } as const;
 export const productFields = {
   tags: "Tag",
@@ -46,7 +56,8 @@ export type Modifier = {
 };
 export type Tier = { min: string; max: string; value: string };
 export type RatePricing = {
-  mode: "flat" | "tiered" | "incremental";
+  mode: "flat" | "tiered" | "incremental" | "package";
+  packing?: PackagePricing;
   criteria: "cart" | "product";
   basis: Basis;
   amountType: "fixed" | "percent";
@@ -127,10 +138,11 @@ export function validateRatePricing(
   input: RatePricing,
   currency: string,
   defaultWeightUnit: string,
+  defaultDimensionUnit = "cm",
 ): RatePricing {
   if (
     !input ||
-    !["flat", "tiered", "incremental"].includes(input.mode) ||
+    !["flat", "tiered", "incremental", "package"].includes(input.mode) ||
     !["cart", "product"].includes(input.criteria) ||
     !Object.hasOwn(pricingBases, input.basis) ||
     (input.criteria === "cart" && input.basis === "price") ||
@@ -142,7 +154,19 @@ export function validateRatePricing(
     mode === "flat"
       ? { mode, criteria: "cart", basis: "total", amountType: "fixed" }
       : { mode, criteria, basis, amountType };
-  if (mode !== "flat" && basis === "weight")
+  if (mode === "package") {
+    result.criteria = "cart";
+    result.basis = "total";
+    result.packing = validatePacking(
+      input.packing,
+      currency,
+      amountType,
+      defaultWeightUnit,
+      defaultDimensionUnit,
+    );
+    if (input.filter) result.filter = validateProductFilter(input.filter);
+  }
+  if (mode !== "flat" && mode !== "package" && basis === "weight")
     result.weightUnit = asWeightUnit(input.weightUnit ?? defaultWeightUnit);
   if (mode === "tiered") {
     if (
@@ -189,13 +213,14 @@ export function validateRatePricing(
       rounding: increment.rounding,
     };
   }
-  if (criteria === "product" && mode !== "flat") {
+  if (criteria === "product" && (mode === "tiered" || mode === "incremental")) {
     if (input.filter) result.filter = validateProductFilter(input.filter);
     if (input.aggregate === "group" && !result.filter)
       throw new Error("Choose a product filter before grouping.");
     if (input.aggregate === "group" || input.aggregate === "combine")
       result.aggregate = input.aggregate;
-    if (basis === "weight" && input.individual) result.individual = true;
+    if (["weight", "volume", "volumetric"].includes(basis) && input.individual)
+      result.individual = true;
   }
   for (const key of ["minimum", "maximum"] as const) {
     const value = textValue(input[key]);
@@ -228,7 +253,12 @@ export function validateRatePricing(
 
 export type PriceStep = { label: string; amount: number; detail?: string };
 export type IneligibleRate =
-  "inactive" | "no-products" | "missing-input" | "no-tier" | "amount-limit";
+  | "inactive"
+  | "no-products"
+  | "missing-input"
+  | "no-package"
+  | "no-tier"
+  | "amount-limit";
 export type RateQuote =
   | { amount: number; steps: PriceStep[] }
   | { reason: IneligibleRate; detail?: string };
@@ -247,7 +277,7 @@ function formatBasis(amount: number, pricing: RatePricing, currency: string) {
   const value = new Intl.NumberFormat("en", {
     maximumFractionDigits: 3,
   }).format(amount);
-  return `${value} ${pricing.basis === "weight" ? (pricing.weightUnit ?? "kg") : "items"}`;
+  return `${value} ${pricing.basis === "weight" ? (pricing.weightUnit ?? "kg") : pricing.basis === "volume" ? "cm³" : pricing.basis === "volumetric" ? "kg" : "items"}`;
 }
 
 function productGroups(
@@ -285,7 +315,12 @@ function productGroups(
   }));
 }
 
-function measure(pricing: RatePricing, lines: Line[], subtotal: number) {
+function measure(
+  pricing: RatePricing,
+  lines: Line[],
+  subtotal: number,
+  divisor?: number,
+) {
   switch (pricing.basis) {
     case "price":
       return lines.reduce((sum, line) => sum + line.price, 0);
@@ -293,6 +328,15 @@ function measure(pricing: RatePricing, lines: Line[], subtotal: number) {
       return subtotal;
     case "quantity":
       return lines.reduce((sum, line) => sum + line.quantity, 0);
+    case "volume":
+    case "volumetric": {
+      const volume = totalVolume(lines, pricing.individual);
+      return volume === undefined
+        ? null
+        : pricing.basis === "volume"
+          ? volume
+          : volume / dimensionalFactor(divisor);
+    }
     case "weight":
       if (lines.some((line) => line.grams === null)) return null;
       return (
@@ -311,7 +355,32 @@ export function quoteRate(rate: FixedRate, cart: CarrierCart): RateQuote {
   let amount = rate.amount;
   const currency = cart.currency;
   const steps: PriceStep[] = [];
-  if (pricing && pricing.mode !== "flat") {
+  if (pricing?.mode === "package") {
+    const packing = pricing.packing!;
+    const filtered = productGroups({ ...pricing, aggregate: "combine" }, cart);
+    if (typeof filtered === "string") return { reason: filtered };
+    const [{ lines }] = filtered;
+    const subtotal = pricing.filter
+      ? lines.reduce((sum, line) => sum + line.price * line.quantity, 0)
+      : cart.subtotal;
+    const packed =
+      packing.method === "attributes"
+        ? packByAttributes(packing, lines, cart, subtotal)
+        : packByDimensions(packing, lines);
+    if ("reason" in packed) return packed;
+    for (const { package: box, count, detail } of packed) {
+      const price =
+        Math.round(
+          scaleAmount(
+            readAmount(box.rate, pricing.amountType, currency),
+            pricing.amountType,
+            cart.subtotal,
+          ),
+        ) * count;
+      steps.push({ label: `${box.name} × ${count}`, amount: price, detail });
+    }
+    amount = steps.reduce((sum, step) => sum + step.amount, 0);
+  } else if (pricing && pricing.mode !== "flat") {
     const groups =
       pricing.criteria === "product"
         ? productGroups(pricing, cart)
@@ -345,7 +414,7 @@ export function quoteRate(rate: FixedRate, cart: CarrierCart): RateQuote {
         pricing.criteria === "cart"
           ? cart.subtotal
           : lines.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const value = measure(pricing, lines, subtotal);
+      const value = measure(pricing, lines, subtotal, cart.volumetricDivisor);
       if (value === null)
         return { reason: "missing-input", detail: "Weight is unavailable." };
       const details = [

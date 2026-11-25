@@ -7,6 +7,8 @@ export default [
     route("onboarding", "routes/app.onboarding._index.tsx"),
     route("onboarding/units", "routes/app.onboarding.units.tsx"),
     route("onboarding/mode", "routes/app.onboarding.mode.tsx"),
+    route("products", "routes/app.products.tsx"),
+    route("products/:id", "routes/app.products.dimensions.tsx"),
     route("settings", "routes/app.settings.tsx"),
     route("rates", "routes/app.rates._index.tsx"),
     route("rates/regions", "routes/app.rates.regions.tsx"),
@@ -33,5 +35,6 @@ export default [
   route("carrier-rates/:storeId/:signature", "routes/carrier-rates.ts"),
   route("webhooks/app/uninstalled", "routes/webhooks.app.uninstalled.tsx"),
   route("webhooks/app/scopes_update", "routes/webhooks.app.scopes_update.tsx"),
+  route("webhooks/products", "routes/webhooks.products.ts"),
   route("webhooks/privacy", "routes/webhooks.privacy.tsx"),
 ] satisfies RouteConfig;

@@ -196,7 +196,7 @@ export async function saveScenario(
     });
     const settings = await tx.storeSettings.findUnique({
       where: { storeId: store.id },
-      select: { weightUnit: true },
+      select: { weightUnit: true, dimensionUnit: true },
     });
     const input = validate(() =>
       validateScenario(
@@ -204,6 +204,7 @@ export async function saveScenario(
         currency,
         settings?.weightUnit ?? "kg",
         regions.map((row) => row.id),
+        settings?.dimensionUnit,
       ),
     );
     const existing = id

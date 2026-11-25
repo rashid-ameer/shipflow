@@ -33,6 +33,17 @@ import {
   type CombinationTrace,
 } from "./combined-rates";
 
+import {
+  asDimensionUnit,
+  displayDimension,
+  dimensionalFactor,
+  lineVolume,
+  totalVolume,
+  type DimensionAxis,
+  type Dimensions,
+} from "./product-dimensions";
+import type { DimensionUnit } from "./shipping-settings";
+
 export const ratesPaths = {
   hub: "/app/rates",
   regions: "/app/rates/regions",
@@ -53,11 +64,29 @@ export const conditionDefinitions = {
   cartTotal: { label: "Total", group: "Cart", kind: "money" },
   cartQuantity: { label: "Quantity", group: "Cart", kind: "number" },
   cartWeight: { label: "Weight", group: "Cart", kind: "weight" },
+  cartLength: { label: "Length", group: "Cart", kind: "dimension" },
+  cartWidth: { label: "Width", group: "Cart", kind: "dimension" },
+  cartHeight: { label: "Height", group: "Cart", kind: "dimension" },
+  cartVolume: { label: "Volume", group: "Cart", kind: "volume" },
+  cartVolumetric: {
+    label: "Volumetric weight",
+    group: "Cart",
+    kind: "volumetric",
+  },
   postalCode: { label: "Postal code", group: "Cart", kind: "postal" },
   productTotal: { label: "Line total", group: "Product", kind: "money" },
   productPrice: { label: "Unit price", group: "Product", kind: "money" },
   productQuantity: { label: "Quantity", group: "Product", kind: "number" },
   productWeight: { label: "Weight", group: "Product", kind: "weight" },
+  productLength: { label: "Length", group: "Product", kind: "dimension" },
+  productWidth: { label: "Width", group: "Product", kind: "dimension" },
+  productHeight: { label: "Height", group: "Product", kind: "dimension" },
+  productVolume: { label: "Volume", group: "Product", kind: "volume" },
+  productVolumetric: {
+    label: "Volumetric weight",
+    group: "Product",
+    kind: "volumetric",
+  },
   productName: { label: "Name", group: "Product", kind: "text" },
   productSku: { label: "SKU", group: "Product", kind: "text" },
   productVendor: { label: "Vendor", group: "Product", kind: "text" },
@@ -125,6 +154,8 @@ export const skuScopes = {
 } as const;
 export const advancedProductScopes = { ...taggedScopes, ...skuScopes };
 export type ConditionDraft = {
+  dimensionUnit?: DimensionUnit;
+  weightUnit?: WeightUnit;
   field: ConditionField;
   operator: Operator;
   value: string;
@@ -136,7 +167,6 @@ export type ConditionDraft = {
 };
 export type RateCondition = ConditionDraft & {
   currency?: string;
-  weightUnit?: WeightUnit;
 };
 export type RateDraft = {
   id: string;
@@ -270,6 +300,7 @@ export function validateScenario(
   currency: string,
   unit: string,
   regionIds: string[],
+  dimensionUnit = "cm",
 ) {
   const draft = input as Partial<ScenarioDraft> | null;
   const name = validName(draft?.name, "scenario");
@@ -284,7 +315,7 @@ export function validateScenario(
     throw new Error("A scenario can have up to 30 conditions and 100 rates.");
   }
   const conditions = draft.conditions.map((condition) =>
-    validateRateCondition(condition, currency, unit),
+    validateRateCondition(condition, currency, unit, dimensionUnit),
   );
   const ids = new Set<string>();
   const rates = draft.rates.map((rate): FixedRate => {
@@ -293,7 +324,7 @@ export function validateScenario(
     if (!rateIdPattern.test(rate.id) || ids.has(rate.id))
       throw new Error("One of the rate entries is invalid.");
     ids.add(rate.id);
-    return validateRateDraft(rate, currency, unit);
+    return validateRateDraft(rate, currency, unit, dimensionUnit);
   });
   return { name, active: draft.active, conditions, rates };
 }
@@ -302,6 +333,7 @@ export function validateRateDraft(
   rate: RateDraft,
   currency: string,
   unit: string,
+  dimensionUnit = "cm",
 ): FixedRate {
   const description = textValue(rate.description);
   const tags = [...new Set(textList(textValue(rate.tags)))];
@@ -317,7 +349,7 @@ export function validateRateDraft(
       "Use up to 1,000 characters in notes and 30 tags of up to 60 characters each.",
     );
   const pricing = rate.pricing
-    ? validateRatePricing(rate.pricing, currency, unit)
+    ? validateRatePricing(rate.pricing, currency, unit, dimensionUnit)
     : undefined;
   return {
     id: rate.id,
@@ -340,6 +372,7 @@ export function validateRateCondition(
   input: ConditionDraft,
   currency: string,
   weight: string,
+  dimensionUnit = "cm",
 ): RateCondition {
   if (
     !input ||
@@ -351,7 +384,7 @@ export function validateRateCondition(
   const value = textValue(input.value);
   const upper = textValue(input.upper);
   if (!value || value.length > 500) throw new Error("Enter a condition value.");
-  const isNumber = kind === "money" || kind === "number" || kind === "weight";
+  const isNumber = !["text", "exact", "postal"].includes(kind);
   if (!isNumber && textList(value).length === 0)
     throw new Error("Enter at least one condition value.");
   if (isNumber) {
@@ -410,11 +443,16 @@ export function validateRateCondition(
     ...(input.field === "province" && provinceCountry
       ? { provinceCountry }
       : {}),
-    ...(input.field === "productWeight"
+    ...(group === "Product" && ["weight", "volume", "volumetric"].includes(kind)
       ? { individual: input.individual === true }
       : {}),
     ...(kind === "money" ? { currency } : {}),
-    ...(kind === "weight" ? { weightUnit: asWeightUnit(weight) } : {}),
+    ...(kind === "weight"
+      ? { weightUnit: asWeightUnit(input.weightUnit ?? weight) }
+      : {}),
+    ...(kind === "dimension"
+      ? { dimensionUnit: asDimensionUnit(input.dimensionUnit ?? dimensionUnit) }
+      : {}),
   };
 }
 
@@ -434,6 +472,7 @@ type Line = {
   barcode?: string;
   productType?: string;
   collections?: string[];
+  dimensions?: Dimensions;
   quantity: number;
   grams: number | null;
   price: number;
@@ -461,6 +500,7 @@ export type CarrierCart = {
   };
   subtotal: number;
   discountedSubtotal?: number;
+  volumetricDivisor?: number;
   lines: Line[];
 };
 
@@ -865,7 +905,12 @@ export function evaluateCarrierCart(
 }
 
 function conditionExpectation(condition: RateCondition) {
-  const units = condition.currency ?? condition.weightUnit;
+  const kind = conditionDefinitions[condition.field].kind;
+  const units =
+    condition.currency ??
+    condition.weightUnit ??
+    condition.dimensionUnit ??
+    (kind === "volume" ? "cm³" : kind === "volumetric" ? "kg" : undefined);
   return [
     operatorLabels[condition.operator],
     condition.value,
@@ -972,6 +1017,33 @@ function matchesCondition(
               0,
             ) / factor,
           );
+    case "cartLength":
+    case "cartWidth":
+    case "cartHeight": {
+      const axis = field.slice(4).toLowerCase() as DimensionAxis;
+      if (cart.lines.some((line) => line.dimensions?.[axis] == null))
+        return null;
+      return compareNumber(
+        displayDimension(
+          cart.lines.reduce(
+            (largest, line) => Math.max(largest, line.dimensions![axis]!),
+            0,
+          ),
+          condition.dimensionUnit ?? "cm",
+        ),
+      );
+    }
+    case "cartVolume":
+    case "cartVolumetric": {
+      const volume = totalVolume(cart.lines);
+      return compareNumber(
+        volume === undefined
+          ? undefined
+          : field === "cartVolume"
+            ? volume
+            : volume / dimensionalFactor(cart.volumetricDivisor),
+      );
+    }
     case "postalCode":
       return cart.postalCode
         ? compareText([cart.postalCode], operator, expected, postalMatch)
@@ -1005,6 +1077,28 @@ function matchesCondition(
         return compareNumber(line.price);
       case "productQuantity":
         return compareNumber(line.quantity);
+      case "productLength":
+      case "productWidth":
+      case "productHeight": {
+        const size =
+          line.dimensions?.[field.slice(7).toLowerCase() as DimensionAxis];
+        return compareNumber(
+          size == null
+            ? undefined
+            : displayDimension(size, condition.dimensionUnit ?? "cm"),
+        );
+      }
+      case "productVolume":
+      case "productVolumetric": {
+        const volume = lineVolume(line);
+        if (volume === undefined) return null;
+        const total = volume * (condition.individual ? 1 : line.quantity);
+        return compareNumber(
+          field === "productVolume"
+            ? total
+            : total / dimensionalFactor(cart.volumetricDivisor),
+        );
+      }
       case "productWeight":
         return line.grams === null
           ? null

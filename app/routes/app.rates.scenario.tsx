@@ -67,6 +67,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     regions: await listRegions(store.id),
     currency: context?.currency ?? null,
     weightUnit: store.settings.weightUnit,
+    dimensionUnit: store.settings.dimensionUnit,
     connected: Boolean(store.carrierServiceId && store.ccsStatus === "ENABLED"),
   };
 }
@@ -222,6 +223,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
           entry.value,
           initial.currency,
           initial.weightUnit,
+          initial.dimensionUnit,
         );
         const conditions = [...draft.conditions];
         conditions[entry.index] = values;
@@ -231,6 +233,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
           entry.value,
           initial.currency,
           initial.weightUnit,
+          initial.dimensionUnit,
         );
         const exists = draft.rates.some((rate) => rate.id === entry.value.id);
         const next = {
@@ -542,6 +545,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               value={entry.value}
               currency={initial.currency ?? ""}
               weightUnit={initial.weightUnit}
+              dimensionUnit={initial.dimensionUnit}
               change={(value) => {
                 setEntryError(undefined);
                 setEntry({ ...entry, value });
@@ -552,6 +556,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               value={entry.value}
               currency={initial.currency ?? ""}
               weightUnit={initial.weightUnit}
+              dimensionUnit={initial.dimensionUnit}
               change={(value) => {
                 setEntryError(undefined);
                 setEntry({ ...entry, value });
@@ -578,11 +583,13 @@ function ConditionEditor({
   value,
   currency,
   weightUnit,
+  dimensionUnit,
   change,
 }: {
   value: ConditionDraft;
   currency: string;
   weightUnit: string;
+  dimensionUnit: string;
   change: (value: ConditionDraft) => void;
 }) {
   const current = conditionDefinitions[value.field];
@@ -593,8 +600,14 @@ function ConditionEditor({
     current.kind === "money"
       ? `Value (${currency})`
       : current.kind === "weight"
-        ? `Value (${weightUnit})`
-        : "Value";
+        ? `Value (${value.weightUnit ?? weightUnit})`
+        : current.kind === "dimension"
+          ? `Value (${value.dimensionUnit ?? dimensionUnit})`
+          : current.kind === "volumetric"
+            ? "Value (kg)"
+            : current.kind === "volume"
+              ? "Value (cm³)"
+              : "Value";
   return (
     <s-stack gap="base">
       <s-select
@@ -736,9 +749,10 @@ function ConditionEditor({
           }
         />
       ) : null}
-      {value.field === "productWeight" ? (
+      {current.group === "Product" &&
+      ["weight", "volume", "volumetric"].includes(current.kind) ? (
         <s-checkbox
-          label="Use unit weight"
+          label="Use individual unit value"
           checked={value.individual ?? false}
           onChange={(e) =>
             change({ ...value, individual: e.currentTarget.checked })

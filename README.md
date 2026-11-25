@@ -103,3 +103,15 @@ COMMIT;
 ```
 
 [Implementation plan](../shipflow_docs/shipflow.milestones.md)
+
+### Product dimensions and package pricing
+
+Open **Products** to sync up to 60,000 products. ShipFlow refreshes the catalog daily while automatic sync is enabled and applies product changes delivered by Shopify. The catalog worker runs with the application server and resumes queued work after a restart.
+
+Use a product’s **Edit** action to save each variant’s length, width, and height. **Sync metafields** can use product or variant metafields. Shopify dimension metafields supply their own units. Numeric metafields use the shop’s configured dimension unit at the time of sync.
+
+Under **Import product dimensions**, use **Send CSV** to receive the template by email. The file uses `product_id,variant_id,length,width,height,unit`. Blank cells preserve saved dimensions. ShipFlow lists invalid rows and emails the import summary. Set `RESEND_API_KEY` and `SHIPFLOW_EMAIL_FROM` to enable email delivery. The sender must use a domain verified with Resend.
+
+In a fixed shipping rate, choose **Based on package** and set up cart-attribute or dimension-based packing. Simulator and History show each selected package and its quantity. Cart volume sums the physical units in the cart. Cart length, width, and height are the largest corresponding item dimensions. Volumetric weight uses cubic centimeters divided by the shop’s divisor. A missing required measurement prevents the affected rate from quoting.
+
+Run `npm run test:m8` with the local PostgreSQL connection. The acceptance fixture imports a 40 × 30 × 20 cm variant, calculates 4.8 kg per unit and 9.6 kg for two units, and verifies a $7 carton in the Simulator pricing path and signed carrier callback.

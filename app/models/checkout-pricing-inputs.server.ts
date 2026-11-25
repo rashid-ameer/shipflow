@@ -164,8 +164,8 @@ export async function addPricingInputs(
               sku: line.sku ?? variant.sku ?? "",
               name: line.name ?? variant.product.title,
               vendor: line.vendor ?? variant.product.vendor,
-              tags: variant.product.tags,
-              productType: variant.product.productType,
+              tags: line.tags ?? variant.product.tags,
+              productType: line.productType ?? variant.product.productType,
               collections: variant.product.collections?.pageInfo.hasNextPage
                 ? undefined
                 : variant.product.collections?.nodes.map(({ title }) => title),

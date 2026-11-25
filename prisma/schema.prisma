@@ -69,6 +69,9 @@ model Store {
   regions           ShippingRegion[]
   scenarios         RateScenario[]
   combinedRates     CombinedRateRule[]
+  catalogProducts   CatalogProduct[]
+  catalogSync       CatalogSync?
+  catalogChanges    CatalogProductChange[]
   carrierRequests   CarrierRequest[]
   historyDataRequests HistoryDataRequest[]
 }
@@ -232,4 +235,72 @@ model HistoryDataRequest {
 
   @@id([storeId, requestId])
   @@index([storeId, customerId])
+}
+
+model CatalogProduct {
+  storeId    String
+  id         BigInt
+  title      String
+  tags       String[]
+  searchTags String
+  productType String
+  vendor     String
+  seenAt     DateTime
+  store      Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variants   CatalogVariant[]
+
+  @@id([storeId, id])
+  @@index([storeId, title, id])
+}
+
+model CatalogVariant {
+  storeId   String
+  id        BigInt
+  productId BigInt
+  title     String
+  sku       String
+  barcode   String
+  length    Float?
+  width     Float?
+  height    Float?
+  revision  Int            @default(0)
+  product   CatalogProduct @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+
+  @@id([storeId, id])
+  @@index([storeId, productId, id])
+}
+
+model CatalogSync {
+  storeId        String    @id
+  autoSync       Boolean   @default(true)
+  nextSyncAt     DateTime?
+  lastSyncAt     DateTime?
+  lastMetafieldSyncAt DateTime?
+  mapping        Json?
+  mappingUnit    String?
+  job            String?
+  startedAt      DateTime?
+  productCursor  BigInt    @default(0)
+  processed      Int       @default(0)
+  rejected       Int       @default(0)
+  limitReached   Boolean   @default(false)
+  error          String?
+  retryAt        DateTime?
+  attempts       Int       @default(0)
+  lease          String?
+  leaseUntil     DateTime?
+  store          Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([nextSyncAt])
+}
+
+model CatalogProductChange {
+  storeId   String
+  productId BigInt
+  revision  String
+  dueAt     DateTime @default(now())
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, productId])
+  @@index([dueAt])
 }

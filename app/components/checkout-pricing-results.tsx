@@ -41,6 +41,7 @@ const roundingLabels = {
 const rejectedLabels = {
   inactive: "Rate is inactive",
   "no-products": "No products matched the filter",
+  "no-package": "No suitable package was found",
   "missing-input": "Required product or cart data is unavailable",
   "no-tier": "No tier matched the pricing value",
   "amount-limit": "Calculated amount is outside the supported range",

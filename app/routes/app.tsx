@@ -15,6 +15,7 @@ import {
   OnboardingStep,
   OperatingMode,
 } from "../models/shop-settings.server";
+import { productsPath } from "../models/product-dimensions";
 import { POLARIS_URL } from "../polaris";
 import { deliveryPaths } from "../models/delivery-customization";
 import { ratesPaths } from "../models/calculated-rates";
@@ -66,6 +67,7 @@ export default function AppLayout() {
           ) : (
             <s-link href={deliveryPaths.list}>Delivery customizations</s-link>
           )}
+          <s-link href={productsPath}>Products</s-link>
           <s-link href="/app/settings">Settings</s-link>
         </s-app-nav>
       ) : null}

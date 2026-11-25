@@ -8,7 +8,7 @@ import type { DeliveryConfiguration } from "./delivery-customization-runtime";
 
 export type AdminQuery = (
   query: string,
-  options?: { variables?: Record<string, unknown>; tries?: number },
+  options?: { variables?: Record<string, unknown>; tries?: number; signal?: AbortSignal },
 ) => Promise<Response>;
 
 const LIST = `#graphql
