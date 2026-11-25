@@ -12,6 +12,10 @@ export default [
     route("rates/regions", "routes/app.rates.regions.tsx"),
     route("rates/scenarios", "routes/app.rates.scenarios.tsx"),
     route("rates/scenarios/:id", "routes/app.rates.scenario.tsx"),
+    route("simulator", "routes/app.simulator.tsx"),
+    route("history", "routes/app.history.tsx"),
+    route("history/customer-data/:id", "routes/app.history.customer-data.ts"),
+    route("history/:id", "routes/app.history.request.tsx"),
     route(
       "delivery-customizations",
       "routes/app.delivery-customizations._index.tsx",

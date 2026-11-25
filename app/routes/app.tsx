@@ -18,6 +18,7 @@ import {
 import { POLARIS_URL } from "../polaris";
 import { deliveryPaths } from "../models/delivery-customization";
 import { ratesPaths } from "../models/calculated-rates";
+import { diagnosticsPaths } from "../models/checkout-history";
 import { authenticate } from "../shopify.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -57,7 +58,11 @@ export default function AppLayout() {
           </s-link>
           <s-link href="/app">Home</s-link>
           {mode === "ccs-rates" ? (
-            <s-link href={ratesPaths.hub}>Rates</s-link>
+            <>
+              <s-link href={ratesPaths.hub}>Rates</s-link>
+              <s-link href={diagnosticsPaths.simulator}>Simulator</s-link>
+              <s-link href={diagnosticsPaths.history}>History</s-link>
+            </>
           ) : (
             <s-link href={deliveryPaths.list}>Delivery customizations</s-link>
           )}

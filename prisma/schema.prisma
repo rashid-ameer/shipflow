@@ -69,6 +69,7 @@ model Store {
   regions           ShippingRegion[]
   scenarios         RateScenario[]
   carrierRequests   CarrierRequest[]
+  historyDataRequests HistoryDataRequest[]
 }
 
 model StoreSettings {
@@ -170,7 +171,23 @@ model CarrierRequest {
   testIdentity  String
   reason        String
   rateCount     Int
+  statusCode    Int      @default(200)
+  customerId    String?
+  snapshot      Json?
+  trace         Json?
   store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([storeId, receivedAt])
+  @@index([storeId, customerId, receivedAt])
+}
+
+model HistoryDataRequest {
+  storeId     String
+  requestId   String
+  customerId  String
+  receivedAt  DateTime @default(now())
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, requestId])
+  @@index([storeId, customerId])
 }

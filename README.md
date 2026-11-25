@@ -20,13 +20,13 @@ docker compose logs -f app
 
 ### Shopify CLI preview and install link
 
-Keep the named Cloudflare connector running with `d5.genieapps.xyz` mapped to `http://127.0.0.1:3013`. If the connector is stopped, restart it in a separate terminal with `cloudflared tunnel --config ~/.cloudflared/config.yml run`. Use one ShipFlow preview process for the development store. If the ShipFlow Docker app is running, stop that service before using the CLI preview. PostgreSQL stays in Docker and is exposed only on local port 5433.
+Keep the named Cloudflare connector running with `d5.genieapps.xyz` mapped to ShipFlow’s local `APP_PORT`. The default is 3013. If that port is occupied, set `APP_PORT` in `.env` and update the ShipFlow ingress rule to match. Restart a stopped connector in a separate terminal with `cloudflared tunnel --config ~/.cloudflared/config.yml run`. Use one ShipFlow preview process for the development store. PostgreSQL uses local port 5433.
 
 ```sh
 npm run preview
 ```
 
-Choose your development store when prompted. The command starts PostgreSQL, applies migrations, and launches Shopify CLI on the fixed URL. When CLI reports ready, run `npm run preview:check` in a second terminal, then open its Shopify Admin preview link. A 502 from the check means the connector cannot reach the app on the configured local port. A response from a different app fails the check too.
+Choose your development store when prompted. The command reuses the configured local PostgreSQL listener when available, applies migrations, and launches Shopify CLI on the fixed URL. When CLI reports ready, run `npm run preview:check` in a second terminal, then open its Shopify Admin preview link. A 502 from the check means the connector cannot reach the app on the configured local port. A response from a different app fails the check too.
 
 Use this same command after a restart to keep the Shopify preview URL stable. To return to the Docker app, stop the CLI with Ctrl+C and run `docker compose up -d app`.
 
@@ -38,7 +38,7 @@ For the milestone persistence checks, keep PostgreSQL running, set `DATABASE_URL
 
 ### Test Delivery Customization
 
-Run `npm run preview` on the selected development store to preview both Function extensions and grant the delivery customization scopes. ShipFlow uses port 3013, leaving port 3000 available for the other app.
+Run `npm run preview` on the selected development store to preview both Function extensions and grant the delivery customization scopes.
 
 In ShipFlow, select Delivery Customization and create a Basic rule for Pickup in store. Add a Product tag condition and the Hide all rates IF action, then save as Active. Compare checkout for a product with that tag and one without it. Switch to CCS Rates and back to verify the rule pauses and resumes. Pickup must already be offered by Shopify for the test products.
 
@@ -52,6 +52,14 @@ Run the WebAssembly fixtures from the project root with `npm --workspace shipflo
 4. In Test Mode, compare carts totaling 99 and 100 before discounts using `shipflow` as the checkout first name. Compare with an ordinary name using a different cart or destination to avoid Shopify’s cached response. The Rates page shows whether Shopify supplied a name and how many rates the last request returned.
 
 The callback returns no Test Mode rates when Shopify omits the name. Fixed prices use the store currency. A callback in a different currency needs a matching rate currency before ShipFlow can quote it. Keep the stable HTTPS URL online throughout checkout testing.
+
+### Compare Simulator and checkout History
+
+1. In **Simulator**, choose Shopify variants and quantities, then set the destination and origin. Run a cart totaling 99 and another totaling 100 against the scenario above. Active scenarios run by default. Explicitly select an inactive scenario to preview a draft before connecting CCS.
+2. In **History**, open each request to compare the saved region, condition results, fixed price, and final price. History shows the last 30 days of actual Carrier Service requests, including empty quotes and failed requests.
+3. If History shows no requests, check the Carrier Service and market or shipping profile setup in **Rates**. Simulator runs leave History unchanged.
+
+Simulator uses the Shopify catalog price in the store currency. Optional customer selection and History name search use Shopify’s customer access. History records the region-level destination, cart inputs, and quote outcome. It looks up names from Shopify as needed. Shopify customer-data requests appear in History when matched checkout data exists.
 
 ## Inspect or reset local database data
 

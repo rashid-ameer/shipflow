@@ -15,6 +15,7 @@ import {
   getCarrierSetup,
 } from "../models/carrier-shopify.server";
 import { getMarketsDashboardData } from "../models/market-readiness.server";
+import { diagnosticsPaths, historyCutoff } from "../models/checkout-history";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { admin, store } = await requireRatesStore(request);
@@ -28,7 +29,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     ),
     prisma.rateScenario.count({ where: { storeId: store.id } }),
     prisma.carrierRequest.findFirst({
-      where: { storeId: store.id },
+      where: { storeId: store.id, receivedAt: { gte: historyCutoff() } },
       orderBy: { receivedAt: "desc" },
       select: { receivedAt: true, testIdentity: true, rateCount: true },
     }),
@@ -78,6 +79,10 @@ export default function RatesHub() {
   return (
     <s-page heading="Rates">
       <s-stack gap="base">
+        <s-stack direction="inline" justifyContent="end" gap="small">
+          <s-button href={diagnosticsPaths.simulator}>Open simulator</s-button>
+          <s-button href={diagnosticsPaths.history}>View history</s-button>
+        </s-stack>
         {connect.data && !connect.data.ok ? (
           <s-banner
             tone="critical"

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { createServer } from "node:net";
+import { createConnection, createServer } from "node:net";
 import { loadEnvFile } from "node:process";
 
 try {
@@ -45,7 +45,16 @@ function run(command, args) {
   if (result.status !== 0) process.exit(result.status ?? (result.signal === "SIGINT" ? 130 : 1));
 }
 
-run("docker", ["compose", "up", "-d", "--wait", "db"]);
+const databaseListening = await new Promise((resolve) => {
+  const socket = createConnection({ host: "127.0.0.1", port: 5433 });
+  socket.once("connect", () => {
+    socket.end();
+    resolve(true);
+  });
+  socket.once("error", () => resolve(false));
+});
+if (!databaseListening) run("docker", ["compose", "up", "-d", "--wait", "db"]);
+else console.log("Using the existing ShipFlow database connection on port 5433.");
 run("npm", ["exec", "--", "prisma", "migrate", "deploy"]);
 run("npm", ["exec", "--", "prisma", "generate"]);
 console.log(`ShipFlow preview uses ${origin.origin} → 127.0.0.1:${port}.`);

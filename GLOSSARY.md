@@ -54,3 +54,9 @@ _Avoid_: Enabled country, configured region
 **Needs setup market**:
 An active Shopify Market where ShipFlow is not currently an active rate provider.
 _Avoid_: Broken market, failed market
+
+**Checkout Simulator**:
+A merchant-run calculation using a selected cart and shipping context to preview CCS Rates.
+
+**History request**:
+A Carrier Service request received from Shopify with its checkout inputs, pricing outcome, and History ID.

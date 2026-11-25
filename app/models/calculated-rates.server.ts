@@ -323,11 +323,14 @@ export async function changeScenarios(
 
 export async function loadActivePricing(
   storeId: string,
+  scenarioIds?: string[],
 ): Promise<{ regions: Region[]; scenarios: Scenario[] }> {
   const [regions, scenarios] = await Promise.all([
     prisma.shippingRegion.findMany({ where: { storeId } }),
     prisma.rateScenario.findMany({
-      where: { storeId, active: true },
+      where: scenarioIds
+        ? { storeId, id: { in: scenarioIds } }
+        : { storeId, active: true },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       include: {
         conditions: { orderBy: { position: "asc" } },
@@ -341,6 +344,8 @@ export async function loadActivePricing(
       coverage: region.coverage as Coverage[],
     })),
     scenarios: scenarios.map((row) => ({
+      id: row.id,
+      name: row.name,
       active: row.active,
       conditions: row.conditions.map((item) => item.condition as RateCondition),
       rates: row.rates,

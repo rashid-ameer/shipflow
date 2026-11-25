@@ -1,20 +1,15 @@
 import type { ActionFunctionArgs } from "react-router";
-import prisma from "../db.server";
-import {
-  checkoutBlockReason,
-  type CheckoutDecisionInput,
-} from "../models/checkout-decision";
 import { validCarrierCallback } from "../models/carrier-shopify.server";
-import { loadActivePricing } from "../models/calculated-rates.server";
 import {
-  evaluateCarrierCart,
+  evaluateStoreCart,
+  getPricingStore,
+} from "../models/checkout-pricing.server";
+import { recordCarrierRequest } from "../models/checkout-history.server";
+import {
   normalizeCarrierPayload,
-  testIdentity,
+  type CarrierCart,
+  type PricingResult,
 } from "../models/calculated-rates";
-import {
-  MULTIPLE_RATE_BEHAVIORS,
-  ROUNDING_METHODS,
-} from "../models/shipping-settings";
 
 const maxRequestLength = 256 * 1024;
 const headers = { "Cache-Control": "no-store" };
@@ -38,80 +33,34 @@ export async function action({ request, params }: ActionFunctionArgs) {
   ) {
     return Response.json({ rates: [] }, { status: 401, headers });
   }
-  if (
-    !request.headers
-      .get("content-type")
-      ?.toLowerCase()
-      .startsWith("application/json")
-  ) {
-    return Response.json({ rates: [] }, { status: 415, headers });
+  let cart: CarrierCart | null = null;
+  let connected = false;
+  async function reply(result: PricingResult, status = 200) {
+    if (connected) await recordCarrierRequest(id, cart, result, status);
+    return Response.json({ rates: result.rates }, { status, headers });
   }
-  const cart = await readCart(request).catch(() => null);
-  if (!cart) return Response.json({ rates: [] }, { status: 400, headers });
-
   try {
-    const shop = await prisma.store.findUnique({
-      where: { id },
-      select: {
-        mode: true,
-        appEnabled: true,
-        testMode: true,
-        ccsStatus: true,
-        carrierServiceId: true,
-        settings: { select: { multipleRates: true, rounding: true } },
-      },
-    });
+    const shop = await getPricingStore(id);
     if (!shop?.carrierServiceId)
       return Response.json({ rates: [] }, { status: 401, headers });
-    const multipleRates =
-      MULTIPLE_RATE_BEHAVIORS.find(
-        (item) => item === shop.settings?.multipleRates,
-      ) ?? "all";
-    const rounding =
-      ROUNDING_METHODS.find((item) => item === shop.settings?.rounding) ??
-      "none";
-    const settings: CheckoutDecisionInput = {
-      mode:
-        shop.mode === "CCS_RATES"
-          ? "ccs-rates"
-          : shop.mode === "DELIVERY_CUSTOMIZATION"
-            ? "delivery-customization"
-            : null,
-      appEnabled: shop.appEnabled,
-      testMode: shop.testMode,
-      customerFirstName: cart.firstName,
-      multipleRates,
-      rounding,
-    };
-    const blocked =
-      checkoutBlockReason(settings) ??
-      (shop.ccsStatus !== "ENABLED" ? "carrier-disabled" : null);
-    const result = blocked
-      ? { rates: [], reason: blocked }
-      : await loadActivePricing(id).then(({ regions, scenarios }) =>
-          evaluateCarrierCart(cart, settings, regions, scenarios),
-        );
-    await prisma.carrierRequest
-      .create({
-        data: {
-          storeId: id,
-          country: cart.destination.country,
-          province: cart.destination.province,
-          currency: cart.currency,
-          testIdentity: testIdentity(cart),
-          reason: result.reason,
-          rateCount: result.rates.length,
-        },
-      })
-      .catch(() =>
-        console.warn("ShipFlow could not save carrier request diagnostics."),
-      );
-    return Response.json({ rates: result.rates }, { headers });
+    connected = true;
+    if (
+      request.headers
+        .get("content-type")
+        ?.split(";")[0]
+        .trim()
+        .toLowerCase() !== "application/json"
+    )
+      return reply({ rates: [], reason: "invalid-request", trace: null }, 415);
+    cart = await readCart(request).catch(() => null);
+    if (!cart)
+      return reply({ rates: [], reason: "invalid-request", trace: null }, 400);
+    return reply(await evaluateStoreCart(shop, cart, { simulation: false }));
   } catch {
     console.warn(
       "ShipFlow could not calculate rates for a Carrier Service request.",
     );
-    return Response.json({ rates: [] }, { headers });
+    return reply({ rates: [], reason: "evaluation-error", trace: null }, 500);
   }
 }
 

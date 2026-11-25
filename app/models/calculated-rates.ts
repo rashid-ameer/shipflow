@@ -87,6 +87,8 @@ export type ScenarioDraft = {
   rates: RateDraft[];
 };
 export type Scenario = {
+  id?: string;
+  name?: string;
   active: boolean;
   conditions: RateCondition[];
   rates: FixedRate[];
@@ -337,6 +339,7 @@ export function formatRateAmount(value: number, currency: string) {
 }
 
 type Line = {
+  variantId?: string;
   name?: string;
   sku?: string;
   vendor?: string;
@@ -347,6 +350,9 @@ type Line = {
 export type CarrierCart = {
   currency: string;
   destination: Destination;
+  origin?: Destination;
+  locale?: string;
+  customerId?: string;
   postalCode?: string;
   city?: string;
   firstName: string | null;
@@ -381,6 +387,7 @@ export function normalizeCarrierPayload(input: unknown): CarrierCart | null {
     if (!quantity || price === null || !Number.isSafeInteger(quantity * price))
       return null;
     lines.push({
+      variantId: positiveShopifyId(item.variant_id) ?? undefined,
       quantity,
       price,
       grams,
@@ -395,12 +402,27 @@ export function normalizeCarrierPayload(input: unknown): CarrierCart | null {
     lines.reduce((sum, line) => sum + line.quantity * line.price, 0);
   if (!Number.isSafeInteger(subtotal)) return null;
   const customer = rate.customer as { tags?: unknown } | null;
+  const origin = rate.origin as Record<string, unknown> | null;
+  const originCountry = textValue(origin?.country).toUpperCase();
+  const originProvince = textValue(origin?.province).toUpperCase();
   const customerTags = Array.isArray(customer?.tags)
     ? customer.tags.filter((tag) => typeof tag === "string")
     : undefined;
   return {
     currency,
     destination: { country, province },
+    origin: countryCodes.has(originCountry)
+      ? {
+          country: originCountry,
+          province: /^[A-Z0-9-]{1,8}$/.test(originProvince)
+            ? originProvince
+            : null,
+        }
+      : undefined,
+    locale: normalizeLocale(rate.locale),
+    customerId:
+      positiveShopifyId((rate.customer as { id?: unknown } | null)?.id) ??
+      undefined,
     subtotal,
     lines,
     customerTags,
@@ -413,14 +435,93 @@ export function normalizeCarrierPayload(input: unknown): CarrierCart | null {
   };
 }
 
+export function positiveShopifyId(value: unknown) {
+  const id =
+    typeof value === "number" && Number.isSafeInteger(value)
+      ? String(value)
+      : textValue(value);
+  return /^[1-9][0-9]{0,19}$/.test(id) ? id : null;
+}
+
+export function normalizeLocale(value: unknown) {
+  const locale = textValue(value);
+  if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,3}$/i.test(locale)) return;
+  try {
+    return Intl.getCanonicalLocales(locale)[0];
+  } catch {
+    return undefined;
+  }
+}
+
+export type ConditionOutcome = "matched" | "unmatched" | "missing" | "currency";
+type ScenarioOutcome =
+  "inactive" | "conditions" | "no-region-rate" | "currency" | "eligible";
+export type PricingTrace = {
+  region: { id: string; name: string } | null;
+  scenarios: {
+    id: string | null;
+    name: string;
+    outcome: ScenarioOutcome;
+    conditions: {
+      title: string;
+      expected: string;
+      outcome: ConditionOutcome;
+    }[];
+  }[];
+  rates: {
+    id: string;
+    name: string;
+    scenario: string;
+    currency: string;
+    amount: number;
+    finalAmount: number | null;
+  }[];
+  selection: CheckoutDecisionInput["multipleRates"];
+  rounding: CheckoutDecisionInput["rounding"];
+};
+export type PricingReason =
+  | "matched"
+  | "no-region"
+  | "no-active-scenarios"
+  | "unmatched-conditions"
+  | "no-region-rate"
+  | "currency-mismatch"
+  | "app-disabled"
+  | "inactive-mode"
+  | "test-mode"
+  | "carrier-disabled"
+  | "invalid-request"
+  | "evaluation-error"
+  | "no-match";
+export type PricingResult = {
+  rates: {
+    service_name: string;
+    service_code: string;
+    description: string;
+    currency: string;
+    total_price: string;
+  }[];
+  reason: PricingReason;
+  trace: PricingTrace | null;
+};
+
 export function evaluateCarrierCart(
   cart: CarrierCart,
   settings: CheckoutDecisionInput,
   regions: Region[],
   scenarios: Scenario[],
-) {
-  const region = matchRegion(regions, cart.destination);
+): PricingResult {
+  let region: Region | undefined;
   const quotes = new Map<string, FixedRate>();
+  const trace: PricingTrace = {
+    region: null,
+    scenarios: [],
+    rates: [],
+    selection: settings.multipleRates,
+    rounding: settings.rounding,
+  };
+  const outcomes = new Set<ScenarioOutcome>();
+  let evaluated = false;
   const decision = decideCheckoutRates(
     {
       ...settings,
@@ -428,32 +529,87 @@ export function evaluateCarrierCart(
       unitsPerMajor: 10 ** moneyDecimals(cart.currency),
     },
     () => {
+      evaluated = true;
+      region = matchRegion(regions, cart.destination);
       if (!region) return [];
+      trace.region = { id: region.id, name: region.name };
       let priority = 0;
-      return scenarios
-        .filter(
-          (scenario) =>
-            scenario.active &&
-            scenario.conditions.every((item) => matchesCondition(item, cart)),
-        )
-        .flatMap((scenario) =>
-          scenario.rates
-            .filter(
-              (rate) =>
-                rate.regionId === region.id && rate.currency === cart.currency,
-            )
-            .map((rate) => {
-              quotes.set(rate.id, rate);
-              return {
-                id: rate.id,
-                amountInMinorUnits: rate.amount,
-                priority: priority++,
-              };
-            }),
+      const regionId = region.id;
+      return scenarios.flatMap((scenario) => {
+        const name = scenario.name ?? "Scenario";
+        const conditions = scenario.active
+          ? scenario.conditions.map((condition) => ({
+              title: `${conditionDefinitions[condition.field].group} · ${conditionDefinitions[condition.field].label}`,
+              expected: conditionExpectation(condition),
+              outcome: conditionOutcome(condition, cart),
+            }))
+          : [];
+        const regionRates = scenario.rates.filter(
+          (rate) => rate.regionId === regionId,
         );
+        const eligible = regionRates.filter(
+          (rate) => rate.currency === cart.currency,
+        );
+        const failed = conditions.filter(
+          (condition) => condition.outcome !== "matched",
+        );
+        const outcome: ScenarioOutcome = !scenario.active
+          ? "inactive"
+          : failed.length
+            ? failed.every((condition) => condition.outcome === "currency")
+              ? "currency"
+              : "conditions"
+            : !regionRates.length
+              ? "no-region-rate"
+              : !eligible.length
+                ? "currency"
+                : "eligible";
+        outcomes.add(outcome);
+        trace.scenarios.push({
+          id: scenario.id ?? null,
+          name,
+          outcome,
+          conditions,
+        });
+        if (outcome !== "eligible") return [];
+        return eligible.map((rate) => {
+          quotes.set(rate.id, rate);
+          trace.rates.push({
+            id: rate.id,
+            name: rate.name,
+            scenario: name,
+            currency: rate.currency,
+            amount: rate.amount,
+            finalAmount: null,
+          });
+          return {
+            id: rate.id,
+            amountInMinorUnits: rate.amount,
+            priority: priority++,
+          };
+        });
+      });
     },
   );
-  if (decision.kind === "empty") return { rates: [], reason: decision.reason };
+  if (!evaluated && decision.kind === "empty")
+    return { rates: [], reason: decision.reason, trace: null };
+  if (decision.kind === "empty") {
+    const reason = !region
+      ? "no-region"
+      : outcomes.has("currency")
+        ? "currency-mismatch"
+        : outcomes.has("no-region-rate")
+          ? "no-region-rate"
+          : outcomes.has("conditions")
+            ? "unmatched-conditions"
+            : "no-active-scenarios";
+    return { rates: [], reason, trace };
+  }
+  const finalAmounts = new Map(
+    decision.rates.map((rate) => [rate.id, rate.amountInMinorUnits]),
+  );
+  for (const rate of trace.rates)
+    rate.finalAmount = finalAmounts.get(rate.id) ?? null;
   const rates = decision.rates.flatMap((rate) => {
     const quote = quotes.get(rate.id);
     if (!quote) return [];
@@ -471,7 +627,51 @@ export function evaluateCarrierCart(
       },
     ];
   });
-  return { rates, reason: rates.length ? "matched" : "no-match" };
+  return { rates, reason: rates.length ? "matched" : "no-match", trace };
+}
+
+function conditionExpectation(condition: RateCondition) {
+  const units = condition.currency ?? condition.weightUnit;
+  return [
+    operatorLabels[condition.operator],
+    condition.value,
+    condition.upper ? `and ${condition.upper}` : "",
+    units ?? "",
+    condition.scope ? `(${condition.scope} items)` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function conditionOutcome(
+  condition: RateCondition,
+  cart: CarrierCart,
+): ConditionOutcome {
+  const { field } = condition;
+  const { kind } = conditionDefinitions[field];
+  if (kind === "money" && condition.currency !== cart.currency)
+    return "currency";
+  if (
+    (field === "postalCode" && !cart.postalCode) ||
+    (field === "province" && !cart.destination.province) ||
+    (field === "city" && !cart.city) ||
+    (field === "customerTag" && cart.customerTags === undefined) ||
+    (field === "cartWeight" && cart.lines.some((line) => line.grams === null))
+  )
+    return "missing";
+  if (matchesCondition(condition, cart)) return "matched";
+  if (
+    (field === "productName" &&
+      cart.lines.some((line) => line.name === undefined)) ||
+    (field === "productSku" &&
+      cart.lines.some((line) => line.sku === undefined)) ||
+    (field === "productVendor" &&
+      cart.lines.some((line) => line.vendor === undefined)) ||
+    (field === "productWeight" &&
+      cart.lines.some((line) => line.grams === null))
+  )
+    return "missing";
+  return "unmatched";
 }
 
 export function testIdentity(cart: CarrierCart) {

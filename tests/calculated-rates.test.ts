@@ -134,7 +134,7 @@ const quote = (cart: CarrierCart, settings = base, rule = scenario) =>
   evaluateCarrierCart(cart, settings, regions, [rule]);
 assert.equal(
   quote(valid(9900)).reason,
-  "no-match",
+  "unmatched-conditions",
   "Uses Shopify's subtotal ahead of the sum of line prices",
 );
 assert.deepEqual(quote(valid(10_000)).rates, [
@@ -146,6 +146,12 @@ assert.deepEqual(quote(valid(10_000)).rates, [
     total_price: "1000",
   },
 ]);
+assert.equal(
+  quote(valid(9900)).trace?.scenarios[0].conditions[0].outcome,
+  "unmatched",
+);
+assert.equal(quote(valid(10_000)).trace?.rates[0].finalAmount, 1000);
+assert.equal(quote(valid(10_000, "QC")).reason, "no-region-rate");
 assert.equal(quote(valid(10_000, "QC")).rates.length, 0);
 assert.equal(
   quote(valid(10_000), base, { ...scenario, active: false }).rates.length,
