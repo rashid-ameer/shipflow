@@ -14,6 +14,7 @@ import { getOrCreateShop } from "../models/shop-settings.server";
 import {
   countries,
   normalizeLocale,
+  parseMoney,
   rateIdPattern,
   ratesPaths,
   validateCoverage,
@@ -61,6 +62,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     locations,
     scenarios,
     testMode: store.testMode,
+    useDiscountedTotal: store.settings.discountedCartTotal,
     appEnabled: store.appEnabled,
     connected: Boolean(store.carrierServiceId && store.ccsStatus === "ENABLED"),
     customerAccess:
@@ -162,10 +164,15 @@ export async function action({ request }: ActionFunctionArgs) {
       quantities,
       context.currency,
     );
+    const discount = formText(form, "discount", 24);
+    const discountAmount = discount
+      ? parseMoney(discount, context.currency)
+      : 0;
     const cart: CarrierCart = {
       currency: context.currency,
       lines,
       subtotal,
+      discountedSubtotal: Math.max(0, subtotal - discountAmount),
       destination: {
         country: destination.country,
         province: destination.provinces[0] ?? null,
@@ -177,6 +184,11 @@ export async function action({ request }: ActionFunctionArgs) {
           : undefined,
       postalCode: formText(form, "postal", 24) || undefined,
       city: formText(form, "city", 100) || undefined,
+      customer: {
+        address: formText(form, "street", 200) || undefined,
+        company: formText(form, "company", 120) || undefined,
+      },
+      customerId: customer?.id.split("/").at(-1),
       locale,
       firstName:
         pricingStore.testMode && form.get("testIdentity") === "yes"
@@ -187,6 +199,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const result = await evaluateStoreCart(pricingStore, cart, {
       simulation: true,
       scenarioIds,
+      getGraphql: async () => admin.graphql,
     });
     return { kind: "result" as const, result, cart: cartSnapshot(cart) };
   } catch (error) {
@@ -238,6 +251,9 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
     province: "",
     city: "",
     postal: "",
+    street: "",
+    company: "",
+    discount: "",
     location: "",
     language: "",
     customer: "",
@@ -479,6 +495,7 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
                 province: "",
                 city: "",
                 postal: "",
+                street: "",
               }));
             }}
           >
@@ -512,10 +529,33 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
             disabled={busy}
             onInput={(event) => update("postal", event.currentTarget.value)}
           />
+          <s-text-field
+            label="Street address"
+            value={values.street}
+            maxLength={200}
+            disabled={busy}
+            onInput={(event) => update("street", event.currentTarget.value)}
+          />
         </s-stack>
       </s-section>
       <s-section heading="Checkout options">
         <s-stack gap="base">
+          {initial.useDiscountedTotal ? (
+            <s-text-field
+              label={`Cart discount (${initial.context?.currency ?? ""})`}
+              value={values.discount}
+              maxLength={24}
+              disabled={busy}
+              onInput={(event) => update("discount", event.currentTarget.value)}
+            />
+          ) : null}
+          <s-text-field
+            label="Company"
+            value={values.company}
+            maxLength={120}
+            disabled={busy}
+            onInput={(event) => update("company", event.currentTarget.value)}
+          />
           <s-select
             label="Ship from"
             value={values.location}

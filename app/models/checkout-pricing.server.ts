@@ -11,12 +11,23 @@ import {
   type CheckoutDecisionInput,
 } from "./checkout-decision";
 import { MULTIPLE_RATE_BEHAVIORS, ROUNDING_METHODS } from "./shipping-settings";
+import { addPricingInputs } from "./checkout-pricing-inputs.server";
+import type { AdminQuery } from "./delivery-customization-admin.server";
 
 type PricingStore = Pick<
   Store,
-  "id" | "mode" | "appEnabled" | "testMode" | "ccsStatus" | "carrierServiceId"
+  | "id"
+  | "shopDomain"
+  | "mode"
+  | "appEnabled"
+  | "testMode"
+  | "ccsStatus"
+  | "carrierServiceId"
 > & {
-  settings: Pick<StoreSettings, "multipleRates" | "rounding"> | null;
+  settings: Pick<
+    StoreSettings,
+    "multipleRates" | "rounding" | "discountedCartTotal"
+  > | null;
 };
 
 export function getPricingStore(id: string) {
@@ -24,12 +35,19 @@ export function getPricingStore(id: string) {
     where: { id },
     select: {
       id: true,
+      shopDomain: true,
       mode: true,
       appEnabled: true,
       testMode: true,
       ccsStatus: true,
       carrierServiceId: true,
-      settings: { select: { multipleRates: true, rounding: true } },
+      settings: {
+        select: {
+          multipleRates: true,
+          rounding: true,
+          discountedCartTotal: true,
+        },
+      },
     },
   });
 }
@@ -37,7 +55,9 @@ export function getPricingStore(id: string) {
 export async function evaluateStoreCart(
   store: PricingStore,
   cart: CarrierCart,
-  options: { simulation: true; scenarioIds?: string[] } | { simulation: false },
+  options: (
+    { simulation: true; scenarioIds?: string[] } | { simulation: false }
+  ) & { getGraphql?: () => Promise<AdminQuery> },
 ): Promise<PricingResult> {
   const settings: CheckoutDecisionInput = {
     mode:
@@ -69,12 +89,21 @@ export async function evaluateStoreCart(
     throw new RateFormError(
       "A selected scenario is no longer available. Refresh and try again.",
     );
-  return evaluateCarrierCart(
-    cart,
-    settings,
-    regions,
-    scenarioIds
-      ? scenarios.map((scenario) => ({ ...scenario, active: true }))
-      : scenarios,
-  );
+  const active = scenarioIds
+    ? scenarios.map((scenario) => ({ ...scenario, active: true }))
+    : scenarios;
+  const hydrated = options.getGraphql
+    ? await addPricingInputs(cart, regions, active, options.getGraphql)
+    : cart;
+  const effective =
+    store.settings?.discountedCartTotal &&
+    hydrated.discountedSubtotal !== undefined
+      ? { ...hydrated, subtotal: hydrated.discountedSubtotal }
+      : hydrated;
+  const result = evaluateCarrierCart(effective, settings, regions, active);
+  if (result.trace && effective.subtotal !== cart.subtotal) {
+    result.trace.pricingSubtotal = effective.subtotal;
+    result.trace.pricingCurrency = cart.currency;
+  }
+  return result;
 }

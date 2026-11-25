@@ -3,6 +3,7 @@ import prisma from "../db.server";
 import { data } from "react-router";
 import { getStorePricingContext } from "./carrier-shopify.server";
 import type { AdminQuery } from "./delivery-customization-admin.server";
+import type { RatePricing } from "./rate-pricing";
 import {
   coverageConflict,
   formatRateAmount,
@@ -150,13 +151,31 @@ export async function getScenario(storeId: string, id: string) {
       active: row.active,
       conditions: row.conditions.map((item) => item.condition as RateCondition),
       rates: row.rates.map(
-        ({ id, regionId, name, description, amount, currency }) => ({
+        ({
           id,
           regionId,
           name,
           description,
-          price: formatRateAmount(amount, currency),
+          amount,
           currency,
+          pricing,
+          active,
+          tags,
+          notes,
+        }) => ({
+          id,
+          regionId,
+          name,
+          description,
+          price:
+            pricing && (pricing as RatePricing).mode !== "flat"
+              ? ""
+              : formatRateAmount(amount, currency),
+          currency,
+          pricing: pricing ? (pricing as RatePricing) : undefined,
+          active,
+          tags: tags.join(", "),
+          notes,
         }),
       ),
     },
@@ -216,6 +235,8 @@ export async function saveScenario(
           entry.value === condition.value &&
           entry.upper === condition.upper &&
           entry.scope === condition.scope &&
+          entry.scopeValue === condition.scopeValue &&
+          entry.provinceCountry === condition.provinceCountry &&
           entry.individual === condition.individual,
       );
       return unchanged ?? condition;
@@ -255,6 +276,7 @@ export async function saveScenario(
     await tx.fixedShippingRate.createMany({
       data: input.rates.map((rate, position) => ({
         ...rate,
+        pricing: rate.pricing as Prisma.InputJsonValue | undefined,
         scenarioId: row.id,
         storeId: store.id,
         position,
@@ -348,7 +370,10 @@ export async function loadActivePricing(
       name: row.name,
       active: row.active,
       conditions: row.conditions.map((item) => item.condition as RateCondition),
-      rates: row.rates,
+      rates: row.rates.map(({ pricing, ...rate }) => ({
+        ...rate,
+        pricing: pricing ? (pricing as RatePricing) : undefined,
+      })),
     })),
   };
 }

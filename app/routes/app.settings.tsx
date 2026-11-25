@@ -549,6 +549,17 @@ function CcsSettings({
             <s-option value="ceil">Round up to 1.00</s-option>
             <s-option value="floor">Round down to 1.00</s-option>
           </s-select>
+          <s-select
+            label="Cart total for shipping rates"
+            name="cartTotalBasis"
+            value={values.cartTotalBasis ?? "original"}
+            onChange={onChange}
+            onInput={onChange}
+            disabled={!fieldsReady}
+          >
+            <s-option value="original">Before discounts</s-option>
+            <s-option value="discounted">After discounts</s-option>
+          </s-select>
         </s-grid>
       </s-stack>
     </s-section>

@@ -151,6 +151,7 @@ export async function updateBasicSettings(
     volumetricDivisor,
     multipleRates,
     rounding,
+    discountedCartTotal,
   } = input;
   const updated = await prisma.store.update({
     where: { id: store.id, mode: OperatingMode.CCS_RATES },
@@ -164,6 +165,7 @@ export async function updateBasicSettings(
           volumetricDivisor,
           multipleRates,
           rounding,
+          discountedCartTotal,
         },
       },
     },

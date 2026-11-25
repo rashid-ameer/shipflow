@@ -140,8 +140,8 @@ export default function ScenariosPage() {
           <s-stack gap="base">
             {total === 0 ? (
               <s-paragraph>
-                Add a fixed shipping rate and the conditions under which it
-                should appear.
+                Add a shipping rate and the conditions under which it should
+                appear.
               </s-paragraph>
             ) : (
               <>

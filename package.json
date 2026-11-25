@@ -11,6 +11,7 @@
     "test:m2": "vite-node tests/shipping-settings.test.ts && vite-node tests/checkout-decision.test.ts && vite-node tests/m2-persistence.test.ts",
     "test:m3": "vite-node tests/delivery-customization.test.ts && vite-node tests/m3-persistence.test.ts",
     "test:m4": "vite-node tests/calculated-rates.test.ts && vite-node tests/m4-carrier-persistence.test.ts",
+    "test:m6": "vite-node tests/cart-product-pricing.test.ts && vite-node tests/m6-pricing-persistence.test.ts",
     "preview:check": "node scripts/check-preview.mjs",
     "preview": "node scripts/start-preview.mjs",
     "dev": "react-router dev --host 0.0.0.0"

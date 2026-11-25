@@ -150,7 +150,7 @@ export default function RatesHub() {
           <s-stack gap="base">
             <s-paragraph>
               {state.scenarios} saved. Use conditions and regions to decide when
-              a fixed shipping rate appears.
+              a shipping rate appears.
             </s-paragraph>
             <s-stack direction="inline" justifyContent="end" gap="small">
               <s-button variant="secondary" href={ratesPaths.regions}>

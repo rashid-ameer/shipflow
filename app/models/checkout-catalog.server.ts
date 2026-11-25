@@ -138,8 +138,8 @@ export async function getSimulatorLines(
       grams: weight
         ? Math.round(weight.value * gramsPerUnit[weight.unit])
         : null,
-      sku: variant.sku?.trim() || undefined,
-      vendor: variant.product.vendor.trim() || undefined,
+      sku: variant.sku?.trim() ?? "",
+      vendor: variant.product.vendor.trim(),
     });
   }
   if (!lines.length)

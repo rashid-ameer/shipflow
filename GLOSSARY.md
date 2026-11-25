@@ -58,5 +58,11 @@ _Avoid_: Broken market, failed market
 **Checkout Simulator**:
 A merchant-run calculation using a selected cart and shipping context to preview CCS Rates.
 
+**Shipping tier**:
+An inclusive range of cart or product values associated with a shipping price. When tiers overlap, the first matching tier wins.
+
+**Incremental pricing**:
+A base rate plus a charge for each pricing step above the free allowance.
+
 **History request**:
 A Carrier Service request received from Shopify with its checkout inputs, pricing outcome, and History ID.

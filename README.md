@@ -61,6 +61,16 @@ The callback returns no Test Mode rates when Shopify omits the name. Fixed price
 
 Simulator uses the Shopify catalog price in the store currency. Optional customer selection and History name search use Shopify’s customer access. History records the region-level destination, cart inputs, and quote outcome. It looks up names from Shopify as needed. Shopify customer-data requests appear in History when matched checkout data exists.
 
+### Verify cart and product pricing
+
+Create a cart-total rate with two tiers in this order. Set the first tier to 50 through 100 with a 10 rate. Set the second to 100 through unlimited (`~`) with an 18 rate. In Simulator, carts at 99.99, 100, and 100.01 should return 10, 10, and 18.
+
+For a per-kg product rate, set a base of 4, an increment of 5 per kg, and skip the first kg. A matching 4 kg shipment starts at 19. A 10% discount brings it to 17.10, then handling of 2 and insurance of 1 bring it to 20.10. A maximum of 18.25 caps it at 18.25 before Settings rounding. The same pricing steps appear in Simulator and History.
+
+Percentage rates use the applicable merchandise total. Product rates can combine matching lines, group them by a filter value, or price each line separately. Cart pricing uses the total before discounts by default. To test after-discount pricing, choose that basis in Settings and enter the discount in Simulator.
+
+Run `npm run test:m6` with the local PostgreSQL connection to check the acceptance examples and confirm that saved rates, Simulator, and carrier requests agree. A live checkout needs a CCS-enabled test store.
+
 ## Inspect or reset local database data
 
 For a visual editor, keep the database container running, export the local `DATABASE_URL` shown above, and run `npx prisma studio`. Prisma Studio opens locally and lets you inspect `Store`, `StoreSettings`, and `Session` records.

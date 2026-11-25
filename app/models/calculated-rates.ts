@@ -3,6 +3,29 @@ import {
   isTestCheckout,
   type CheckoutDecisionInput,
 } from "./checkout-decision";
+import {
+  asWeightUnit,
+  compareText,
+  moneyDecimals,
+  parseDecimal,
+  parseMoney,
+  textList,
+  textOperators,
+  textValue,
+  weightGrams,
+  type WeightUnit,
+} from "./checkout-values";
+import {
+  productMatches,
+  productValues,
+  quoteRate,
+  validateRatePricing,
+  type IneligibleRate,
+  type PriceStep,
+  type ProductField,
+  type RatePricing,
+} from "./rate-pricing";
+export { formatRateAmount, moneyDecimals, parseMoney } from "./checkout-values";
 
 export const ratesPaths = {
   hub: "/app/rates",
@@ -32,9 +55,29 @@ export const conditionDefinitions = {
   productName: { label: "Name", group: "Product", kind: "text" },
   productSku: { label: "SKU", group: "Product", kind: "text" },
   productVendor: { label: "Vendor", group: "Product", kind: "text" },
+  productTag: { label: "Tag", group: "Product", kind: "text" },
+  productBarcode: { label: "Barcode", group: "Product", kind: "text" },
+  productType: { label: "Product type", group: "Product", kind: "text" },
+  productCollection: { label: "Collection", group: "Product", kind: "text" },
   country: { label: "Delivery country", group: "Customer", kind: "text" },
   province: { label: "Delivery province", group: "Customer", kind: "exact" },
   city: { label: "Delivery city", group: "Customer", kind: "text" },
+  customerName: { label: "Name", group: "Customer", kind: "text" },
+  customerEmail: { label: "Email", group: "Customer", kind: "text" },
+  customerPhone: { label: "Phone", group: "Customer", kind: "text" },
+  customerFax: { label: "Fax", group: "Customer", kind: "text" },
+  customerAddress: { label: "Street address", group: "Customer", kind: "text" },
+  customerCompany: { label: "Company", group: "Customer", kind: "text" },
+  previousOrders: {
+    label: "Previous order count",
+    group: "Customer",
+    kind: "number",
+  },
+  previousSpent: {
+    label: "Previous order spent",
+    group: "Customer",
+    kind: "money",
+  },
   customerTag: {
     label: "Customer tag (when supplied by Shopify)",
     group: "Customer",
@@ -56,15 +99,35 @@ export const operatorLabels = {
 } as const;
 type Operator = keyof typeof operatorLabels;
 type ConditionField = keyof typeof conditionDefinitions;
+export const basicScopes = {
+  any: "Any product",
+  all: "All products",
+  none: "None of the products",
+} as const;
+export const taggedScopes = {
+  "tag-all": "All matching products have the tag",
+  "tag-any": "Any matching product has the tag",
+  "tag-filter": "All products with the tag match",
+} as const;
+export const skuScopes = {
+  "sku-all": "All matching products have the SKU",
+  "sku-any": "Any matching product has the SKU",
+  "sku-prefix-all": "All matching SKUs start with the value",
+  "sku-prefix-any": "Any matching SKU starts with the value",
+  "sku-filter": "All products with the SKU match",
+  "sku-prefix-filter": "All products with the SKU prefix match",
+} as const;
+export const advancedProductScopes = { ...taggedScopes, ...skuScopes };
 export type ConditionDraft = {
   field: ConditionField;
   operator: Operator;
   value: string;
   upper?: string;
-  scope?: "all" | "any" | "none";
+  scope?: keyof typeof basicScopes | keyof typeof advancedProductScopes;
+  scopeValue?: string;
+  provinceCountry?: string;
   individual?: boolean;
 };
-type WeightUnit = "g" | "kg" | "lb" | "oz";
 export type RateCondition = ConditionDraft & {
   currency?: string;
   weightUnit?: WeightUnit;
@@ -75,10 +138,15 @@ export type RateDraft = {
   name: string;
   description: string;
   price: string;
+  pricing?: RatePricing;
+  active?: boolean;
+  tags?: string;
+  notes?: string;
 };
-export type FixedRate = Omit<RateDraft, "price"> & {
+export type FixedRate = Omit<RateDraft, "price" | "tags"> & {
   amount: number;
   currency: string;
+  tags?: string[];
 };
 export type ScenarioDraft = {
   name: string;
@@ -109,12 +177,6 @@ export const countries = Array.from({ length: 676 }, (_, index) =>
   })
   .sort((a, b) => a.label.localeCompare(b.label));
 const countryCodes = new Set(countries.map(({ code }) => code));
-const weightGrams = {
-  g: 1,
-  kg: 1000,
-  lb: 453.59237,
-  oz: 28.349523125,
-} as const;
 
 export function matchRegion(regions: Region[], destination: Destination) {
   let broad: Region | undefined;
@@ -186,11 +248,15 @@ export function coverageConflict(coverage: Coverage[], others: Region[]) {
 export function allowedOperators(field: ConditionField): Operator[] {
   const { kind, group } = conditionDefinitions[field];
   if (kind === "postal" || kind === "exact") return ["eq", "ne"];
-  if (kind === "text")
-    return ["eq", "ne", "contains", "notContains", "starts", "notStarts"];
-  return group === "Product"
+  if (kind === "text") return [...textOperators];
+  return group !== "Cart"
     ? ["eq", "ne", "gte", "lte", "between"]
     : ["eq", "ne", "gt", "gte", "lt", "lte", "between"];
+}
+
+export function supportsAdvancedScope(field: ConditionField) {
+  const { group, kind } = conditionDefinitions[field];
+  return group === "Product" && (kind !== "text" || field === "productName");
 }
 
 export function validateScenario(
@@ -221,19 +287,47 @@ export function validateScenario(
     if (!rateIdPattern.test(rate.id) || ids.has(rate.id))
       throw new Error("One of the rate entries is invalid.");
     ids.add(rate.id);
-    const description = textValue(rate.description);
-    if (description.length > 250)
-      throw new Error("Use up to 250 characters in a rate description.");
-    return {
-      id: rate.id,
-      regionId: rate.regionId,
-      name: validName(rate.name, "shipping rate"),
-      description,
-      currency,
-      amount: parseMoney(rate.price, currency),
-    };
+    return validateRateDraft(rate, currency, unit);
   });
   return { name, active: draft.active, conditions, rates };
+}
+
+export function validateRateDraft(
+  rate: RateDraft,
+  currency: string,
+  unit: string,
+): FixedRate {
+  const description = textValue(rate.description);
+  const tags = [...new Set(textList(textValue(rate.tags)))];
+  const notes = textValue(rate.notes);
+  if (description.length > 250)
+    throw new Error("Use up to 250 characters in a rate description.");
+  if (
+    notes.length > 1000 ||
+    tags.length > 30 ||
+    tags.some((tag) => tag.length > 60)
+  )
+    throw new Error(
+      "Use up to 1,000 characters in notes and 30 tags of up to 60 characters each.",
+    );
+  const pricing = rate.pricing
+    ? validateRatePricing(rate.pricing, currency, unit)
+    : undefined;
+  return {
+    id: rate.id,
+    regionId: rate.regionId,
+    name: validName(rate.name, "shipping rate"),
+    description,
+    currency,
+    pricing,
+    active: rate.active !== false,
+    tags,
+    notes,
+    amount:
+      !pricing || pricing.mode === "flat"
+        ? parseMoney(rate.price, currency)
+        : 0,
+  };
 }
 
 export function validateRateCondition(
@@ -275,18 +369,40 @@ export function validateRateCondition(
     throw new Error(
       "Enter postal codes, prefixes such as 1004*, or ranges such as 100400:100500.",
     );
+  const scope = input.scope ?? "any";
+  const advanced = Object.hasOwn(advancedProductScopes, scope);
+  const scopeValue = textValue(input.scopeValue);
+  if (
+    group === "Product" &&
+    !Object.hasOwn(basicScopes, scope) &&
+    (!advanced || !supportsAdvancedScope(input.field))
+  )
+    throw new Error("Choose a scope supported by this product condition.");
+  if (
+    group === "Product" &&
+    advanced &&
+    (!textList(scopeValue).length || scopeValue.length > 500)
+  )
+    throw new Error("Enter the tags or SKUs used by this scope.");
+  const provinceCountry = textValue(input.provinceCountry).toUpperCase();
+  if (
+    input.field === "province" &&
+    ((provinceCountry && !countryCodes.has(provinceCountry)) ||
+      textList(value).some((code) => !/^[A-Z0-9-]{1,8}$/i.test(code)))
+  )
+    throw new Error(
+      "Enter valid province or state codes and select their country.",
+    );
   return {
     field: input.field,
     operator: input.operator,
     value,
     ...(input.operator === "between" ? { upper } : {}),
     ...(group === "Product"
-      ? {
-          scope:
-            input.scope === "all" || input.scope === "none"
-              ? input.scope
-              : "any",
-        }
+      ? { scope, ...(advanced ? { scopeValue } : {}) }
+      : {}),
+    ...(input.field === "province" && provinceCountry
+      ? { provinceCountry }
       : {}),
     ...(input.field === "productWeight"
       ? { individual: input.individual === true }
@@ -303,46 +419,15 @@ export function validName(value: unknown, label: string) {
   return name;
 }
 
-export function moneyDecimals(currency: string) {
-  return (
-    new Intl.NumberFormat("en", {
-      style: "currency",
-      currency,
-    }).resolvedOptions().maximumFractionDigits ?? 2
-  );
-}
-
-export function parseMoney(value: unknown, currency: string) {
-  const decimals = moneyDecimals(currency);
-  const amount = parseDecimal(textValue(value), decimals);
-  const inMinorUnits = Math.round(amount * 10 ** decimals);
-  if (inMinorUnits > 2_000_000_000) throw new Error("Enter a smaller amount.");
-  return inMinorUnits;
-}
-
-function parseDecimal(value: string, decimals: number) {
-  if (
-    !/^\d+(?:\.\d+)?$/.test(value) ||
-    (value.split(".")[1]?.length ?? 0) > decimals ||
-    Number(value) > 1_000_000
-  ) {
-    throw new Error(
-      `Enter a non-negative number up to 1,000,000${decimals > 0 ? ` with up to ${decimals} decimal places` : ""}.`,
-    );
-  }
-  return Number(value);
-}
-
-export function formatRateAmount(value: number, currency: string) {
-  const decimals = moneyDecimals(currency);
-  return (value / 10 ** decimals).toFixed(decimals);
-}
-
 type Line = {
   variantId?: string;
   name?: string;
   sku?: string;
   vendor?: string;
+  tags?: string[];
+  barcode?: string;
+  productType?: string;
+  collections?: string[];
   quantity: number;
   grams: number | null;
   price: number;
@@ -357,7 +442,19 @@ export type CarrierCart = {
   city?: string;
   firstName: string | null;
   customerTags?: string[];
+  customer?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    fax?: string;
+    address?: string;
+    company?: string;
+    previousOrders?: number;
+    previousSpent?: number;
+    spentCurrency?: string;
+  };
   subtotal: number;
+  discountedSubtotal?: number;
   lines: Line[];
 };
 
@@ -392,11 +489,17 @@ export function normalizeCarrierPayload(input: unknown): CarrierCart | null {
       price,
       grams,
       name: optionalText(item.name),
-      sku: optionalText(item.sku),
-      vendor: optionalText(item.vendor),
+      sku: typeof item.sku === "string" ? item.sku.trim() : undefined,
+      vendor: typeof item.vendor === "string" ? item.vendor.trim() : undefined,
+      barcode:
+        typeof item.barcode === "string" ? item.barcode.trim() : undefined,
     });
   }
-  const totals = rate.order_totals as { subtotal_price?: unknown } | null;
+  const totals = rate.order_totals as {
+    subtotal_price?: unknown;
+    total_price?: unknown;
+    discount_amount?: unknown;
+  } | null;
   const subtotal =
     nonnegativeInt(totals?.subtotal_price) ??
     lines.reduce((sum, line) => sum + line.quantity * line.price, 0);
@@ -424,10 +527,29 @@ export function normalizeCarrierPayload(input: unknown): CarrierCart | null {
       positiveShopifyId((rate.customer as { id?: unknown } | null)?.id) ??
       undefined,
     subtotal,
+    discountedSubtotal:
+      nonnegativeInt(totals?.total_price) ??
+      (nonnegativeInt(totals?.discount_amount) === null
+        ? undefined
+        : Math.max(
+            0,
+            subtotal - (nonnegativeInt(totals?.discount_amount) ?? 0),
+          )),
     lines,
     customerTags,
     postalCode: optionalText(addr?.postal_code) ?? optionalText(addr?.zip),
     city: optionalText(addr?.city),
+    customer: {
+      name: optionalText(addr?.name),
+      email: optionalText(addr?.email),
+      phone: optionalText(addr?.phone),
+      fax: optionalText(addr?.fax),
+      address:
+        [optionalText(addr?.address1), optionalText(addr?.address2)]
+          .filter(Boolean)
+          .join(" ") || undefined,
+      company: optionalText(addr?.company_name),
+    },
     firstName:
       optionalText(addr?.first_name) ??
       optionalText(addr?.name)?.split(/\s+/)[0] ??
@@ -455,8 +577,15 @@ export function normalizeLocale(value: unknown) {
 
 export type ConditionOutcome = "matched" | "unmatched" | "missing" | "currency";
 type ScenarioOutcome =
-  "inactive" | "conditions" | "no-region-rate" | "currency" | "eligible";
+  | "inactive"
+  | "conditions"
+  | "no-region-rate"
+  | "currency"
+  | "eligible"
+  | "no-priced-rate";
 export type PricingTrace = {
+  pricingSubtotal?: number;
+  pricingCurrency?: string;
   region: { id: string; name: string } | null;
   scenarios: {
     id: string | null;
@@ -475,6 +604,14 @@ export type PricingTrace = {
     currency: string;
     amount: number;
     finalAmount: number | null;
+    steps?: PriceStep[];
+    tags?: string[];
+  }[];
+  rejectedRates?: {
+    name: string;
+    scenario: string;
+    reason: IneligibleRate;
+    detail?: string;
   }[];
   selection: CheckoutDecisionInput["multipleRates"];
   rounding: CheckoutDecisionInput["rounding"];
@@ -485,6 +622,7 @@ export type PricingReason =
   | "no-active-scenarios"
   | "unmatched-conditions"
   | "no-region-rate"
+  | "no-priced-rate"
   | "currency-mismatch"
   | "app-disabled"
   | "inactive-mode"
@@ -564,30 +702,49 @@ export function evaluateCarrierCart(
               : !eligible.length
                 ? "currency"
                 : "eligible";
-        outcomes.add(outcome);
-        trace.scenarios.push({
+        const entry: PricingTrace["scenarios"][number] = {
           id: scenario.id ?? null,
           name,
           outcome,
           conditions,
-        });
-        if (outcome !== "eligible") return [];
-        return eligible.map((rate) => {
+        };
+        trace.scenarios.push(entry);
+        if (outcome !== "eligible") {
+          outcomes.add(outcome);
+          return [];
+        }
+        const priced = eligible.flatMap((rate) => {
+          const price = quoteRate(rate, cart);
+          if ("reason" in price) {
+            (trace.rejectedRates ??= []).push({
+              name: rate.name,
+              scenario: name,
+              ...price,
+            });
+            return [];
+          }
           quotes.set(rate.id, rate);
           trace.rates.push({
             id: rate.id,
             name: rate.name,
             scenario: name,
             currency: rate.currency,
-            amount: rate.amount,
+            amount: price.amount,
+            steps: price.steps,
+            ...(rate.tags?.length ? { tags: rate.tags } : {}),
             finalAmount: null,
           });
-          return {
-            id: rate.id,
-            amountInMinorUnits: rate.amount,
-            priority: priority++,
-          };
+          return [
+            {
+              id: rate.id,
+              amountInMinorUnits: price.amount,
+              priority: priority++,
+            },
+          ];
         });
+        if (!priced.length) entry.outcome = "no-priced-rate";
+        outcomes.add(entry.outcome);
+        return priced;
       });
     },
   );
@@ -596,20 +753,28 @@ export function evaluateCarrierCart(
   if (decision.kind === "empty") {
     const reason = !region
       ? "no-region"
-      : outcomes.has("currency")
-        ? "currency-mismatch"
-        : outcomes.has("no-region-rate")
-          ? "no-region-rate"
-          : outcomes.has("conditions")
-            ? "unmatched-conditions"
-            : "no-active-scenarios";
+      : outcomes.has("no-priced-rate")
+        ? "no-priced-rate"
+        : outcomes.has("currency")
+          ? "currency-mismatch"
+          : outcomes.has("no-region-rate")
+            ? "no-region-rate"
+            : outcomes.has("conditions")
+              ? "unmatched-conditions"
+              : "no-active-scenarios";
     return { rates: [], reason, trace };
   }
   const finalAmounts = new Map(
     decision.rates.map((rate) => [rate.id, rate.amountInMinorUnits]),
   );
-  for (const rate of trace.rates)
+  for (const rate of trace.rates) {
     rate.finalAmount = finalAmounts.get(rate.id) ?? null;
+    if (rate.finalAmount !== null && settings.rounding !== "none")
+      rate.steps?.push({
+        label: "Settings rounding",
+        amount: rate.finalAmount,
+      });
+  }
   const rates = decision.rates.flatMap((rate) => {
     const quote = quotes.get(rate.id);
     if (!quote) return [];
@@ -637,7 +802,10 @@ function conditionExpectation(condition: RateCondition) {
     condition.value,
     condition.upper ? `and ${condition.upper}` : "",
     units ?? "",
-    condition.scope ? `(${condition.scope} items)` : "",
+    condition.provinceCountry ? `in ${condition.provinceCountry}` : "",
+    condition.scope
+      ? `(${{ ...basicScopes, ...advancedProductScopes }[condition.scope]}${condition.scopeValue ? `: ${condition.scopeValue}` : ""})`
+      : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -647,31 +815,17 @@ function conditionOutcome(
   condition: RateCondition,
   cart: CarrierCart,
 ): ConditionOutcome {
-  const { field } = condition;
-  const { kind } = conditionDefinitions[field];
-  if (kind === "money" && condition.currency !== cart.currency)
+  const { kind } = conditionDefinitions[condition.field];
+  if (
+    kind === "money" &&
+    (condition.currency !== cart.currency ||
+      (condition.field === "previousSpent" &&
+        cart.customer?.spentCurrency &&
+        cart.customer.spentCurrency !== cart.currency))
+  )
     return "currency";
-  if (
-    (field === "postalCode" && !cart.postalCode) ||
-    (field === "province" && !cart.destination.province) ||
-    (field === "city" && !cart.city) ||
-    (field === "customerTag" && cart.customerTags === undefined) ||
-    (field === "cartWeight" && cart.lines.some((line) => line.grams === null))
-  )
-    return "missing";
-  if (matchesCondition(condition, cart)) return "matched";
-  if (
-    (field === "productName" &&
-      cart.lines.some((line) => line.name === undefined)) ||
-    (field === "productSku" &&
-      cart.lines.some((line) => line.sku === undefined)) ||
-    (field === "productVendor" &&
-      cart.lines.some((line) => line.vendor === undefined)) ||
-    (field === "productWeight" &&
-      cart.lines.some((line) => line.grams === null))
-  )
-    return "missing";
-  return "unmatched";
+  const result = matchesCondition(condition, cart);
+  return result === null ? "missing" : result ? "matched" : "unmatched";
 }
 
 export function testIdentity(cart: CarrierCart) {
@@ -682,57 +836,99 @@ export function testIdentity(cart: CarrierCart) {
       : "other";
 }
 
-function matchesCondition(condition: RateCondition, cart: CarrierCart) {
+export const productConditionFields: Partial<
+  Record<ConditionField, ProductField | "name">
+> = {
+  productName: "name",
+  productVendor: "vendor",
+  productSku: "sku",
+  productTag: "tags",
+  productType: "productType",
+  productBarcode: "barcode",
+  productCollection: "collections",
+};
+const customerTextFields: Partial<
+  Record<
+    ConditionField,
+    "name" | "email" | "phone" | "fax" | "address" | "company"
+  >
+> = {
+  customerName: "name",
+  customerEmail: "email",
+  customerPhone: "phone",
+  customerFax: "fax",
+  customerAddress: "address",
+  customerCompany: "company",
+};
+
+function matchesCondition(
+  condition: RateCondition,
+  cart: CarrierCart,
+): boolean | null {
   const { field, operator, value, upper } = condition;
   const { kind, group } = conditionDefinitions[field];
-  if (kind === "money" && condition.currency !== cart.currency) return false;
-  const low =
-    kind === "money" ? parseMoney(value, cart.currency) : Number(value);
-  const high =
-    upper === undefined
-      ? undefined
-      : kind === "money"
-        ? parseMoney(upper, cart.currency)
-        : Number(upper);
-  const compareNumber = (actual: number) =>
-    compareNumeric(actual, operator, low, high);
+  const expected = textList(value);
+  const compare = (actual: string[] | undefined) =>
+    actual === undefined ? null : compareText(actual, operator, expected);
+  const compareNumber = (actual: number | undefined) => {
+    if (actual === undefined) return null;
+    const number = (entry: string) =>
+      kind === "money" ? parseMoney(entry, cart.currency) : Number(entry);
+    return compareNumeric(
+      actual,
+      operator,
+      number(value),
+      upper === undefined ? undefined : number(upper),
+    );
+  };
   const factor = weightGrams[asWeightUnit(condition.weightUnit)];
-  if (field === "cartTotal") return compareNumber(cart.subtotal);
-  if (field === "cartQuantity")
-    return compareNumber(
-      cart.lines.reduce((sum, line) => sum + line.quantity, 0),
-    );
-  if (field === "cartWeight")
-    return (
-      cart.lines.every((line) => line.grams !== null) &&
-      compareNumber(
-        cart.lines.reduce((sum, line) => sum + line.grams! * line.quantity, 0) /
-          factor,
+  const customerField = customerTextFields[field];
+  if (customerField) {
+    const actual = cart.customer?.[customerField];
+    return compare(actual ? [actual] : undefined);
+  }
+  switch (field) {
+    case "cartTotal":
+      return compareNumber(cart.subtotal);
+    case "cartQuantity":
+      return compareNumber(
+        cart.lines.reduce((sum, line) => sum + line.quantity, 0),
+      );
+    case "cartWeight":
+      return cart.lines.some((line) => line.grams === null)
+        ? null
+        : compareNumber(
+            cart.lines.reduce(
+              (sum, line) => sum + (line.grams ?? 0) * line.quantity,
+              0,
+            ) / factor,
+          );
+    case "postalCode":
+      return cart.postalCode
+        ? compareText([cart.postalCode], operator, expected, postalMatch)
+        : null;
+    case "country":
+      return compare([cart.destination.country]);
+    case "province":
+      if (
+        condition.provinceCountry &&
+        cart.destination.country !== condition.provinceCountry
       )
-    );
-  if (field === "postalCode")
-    return (
-      Boolean(cart.postalCode) &&
-      compareText([cart.postalCode!], operator, textList(value), postalMatch)
-    );
-  if (field === "country")
-    return compareText([cart.destination.country], operator, textList(value));
-  if (field === "province")
-    return (
-      Boolean(cart.destination.province) &&
-      compareText([cart.destination.province!], operator, textList(value))
-    );
-  if (field === "city")
-    return (
-      Boolean(cart.city) && compareText([cart.city!], operator, textList(value))
-    );
-  if (field === "customerTag")
-    return (
-      cart.customerTags !== undefined &&
-      compareText(cart.customerTags, operator, textList(value))
-    );
-  if (group !== "Product") return false;
-  const results = cart.lines.map((line): boolean | null => {
+        return false;
+      return compare(
+        cart.destination.province ? [cart.destination.province] : undefined,
+      );
+    case "city":
+      return compare(cart.city ? [cart.city] : undefined);
+    case "customerTag":
+      return compare(cart.customerTags);
+    case "previousOrders":
+      return compareNumber(cart.customer?.previousOrders);
+    case "previousSpent":
+      return compareNumber(cart.customer?.previousSpent);
+  }
+  if (group !== "Product") return null;
+  const results = cart.lines.map((line) => {
     switch (field) {
       case "productTotal":
         return compareNumber(line.price * line.quantity);
@@ -747,27 +943,46 @@ function matchesCondition(condition: RateCondition, cart: CarrierCart) {
               (line.grams * (condition.individual ? 1 : line.quantity)) /
                 factor,
             );
-      case "productName":
-        return line.name === undefined
-          ? null
-          : compareText([line.name], operator, textList(value));
-      case "productSku":
-        return line.sku === undefined
-          ? null
-          : compareText([line.sku], operator, textList(value));
-      case "productVendor":
-        return line.vendor === undefined
-          ? null
-          : compareText([line.vendor], operator, textList(value));
-      default:
-        return null;
     }
+    const attribute = productConditionFields[field];
+    if (attribute === "name")
+      return compare(line.name === undefined ? undefined : [line.name]);
+    return attribute ? compare(productValues(line, attribute)) : null;
   });
-  if (condition.scope === "none")
-    return results.every((result) => result === false);
-  if (condition.scope === "all")
-    return results.every((result) => result === true);
-  return results.some((result) => result === true);
+  const scope = condition.scope ?? "any";
+  if (scope === "any") return resolveMatch(results, false);
+  if (scope === "all") return resolveMatch(results, true);
+  if (scope === "none")
+    return resolveMatch(
+      results.map((result) => (result === null ? null : !result)),
+      true,
+    );
+  const filter = {
+    field: scope.startsWith("tag") ? "tags" : "sku",
+    operator: scope.includes("prefix") ? "starts" : "eq",
+    value: condition.scopeValue ?? "",
+  } as const;
+  if (scope.endsWith("filter")) {
+    const selected = cart.lines.flatMap((line, index) => {
+      const qualified = productMatches(line, filter);
+      return qualified === false
+        ? []
+        : [qualified === null ? null : results[index]];
+    });
+    return resolveMatch(selected, true);
+  }
+  const qualifying = results.flatMap((result, index) =>
+    result === false
+      ? []
+      : [result === null ? null : productMatches(cart.lines[index], filter)],
+  );
+  return resolveMatch(qualifying, !scope.endsWith("any"));
+}
+
+function resolveMatch(results: (boolean | null)[], all: boolean) {
+  if (!results.length) return false;
+  if (results.includes(!all)) return !all;
+  return results.includes(null) ? null : all;
 }
 
 function compareNumeric(
@@ -796,30 +1011,6 @@ function compareNumeric(
   }
 }
 
-function compareText(
-  actual: string[],
-  operator: Operator,
-  expected: string[],
-  equals = (a: string, b: string) => a === b,
-) {
-  const matches = actual.some((item) =>
-    expected.some((value) => {
-      const a = item.toUpperCase(),
-        b = value.toUpperCase();
-      if (operator === "contains" || operator === "notContains")
-        return a.includes(b);
-      if (operator === "starts" || operator === "notStarts")
-        return a.startsWith(b);
-      return equals(a, b);
-    }),
-  );
-  return operator === "ne" ||
-    operator === "notContains" ||
-    operator === "notStarts"
-    ? !matches
-    : matches;
-}
-
 function postalMatch(actual: string, expected: string) {
   if (expected.includes(":")) {
     const [min, max] = expected.split(":").map(Number);
@@ -827,11 +1018,11 @@ function postalMatch(actual: string, expected: string) {
       /^\d+$/.test(actual) && min <= Number(actual) && Number(actual) <= max
     );
   }
-  if (expected.endsWith("_"))
-    return actual.startsWith(expected.slice(0, -1) + " ");
-  return expected.endsWith("*")
-    ? actual.startsWith(expected.slice(0, -1))
-    : actual === expected;
+  const pattern = expected.replaceAll("_", " ");
+  if (expected.endsWith("_")) return actual.startsWith(pattern);
+  return pattern.endsWith("*")
+    ? actual.startsWith(pattern.slice(0, -1))
+    : actual === pattern;
 }
 
 function nonnegativeInt(value: unknown) {
@@ -839,20 +1030,7 @@ function nonnegativeInt(value: unknown) {
     ? value
     : null;
 }
-function asWeightUnit(value: unknown): WeightUnit {
-  return typeof value === "string" && Object.hasOwn(weightGrams, value)
-    ? (value as WeightUnit)
-    : "kg";
-}
-function textValue(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
+
 function optionalText(value: unknown) {
   return textValue(value) || undefined;
-}
-function textList(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }

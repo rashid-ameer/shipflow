@@ -20,6 +20,7 @@ const scenarioLabels = {
   eligible: "Eligible",
   conditions: "Conditions did not match",
   "no-region-rate": "No rate for this region",
+  "no-priced-rate": "No eligible price",
   currency: "Different currency",
   inactive: "Inactive",
 };
@@ -36,6 +37,13 @@ const roundingLabels = {
   "nearest-one": "Nearest whole unit",
   "nearest-half": "Nearest half unit",
 };
+const rejectedLabels = {
+  inactive: "Rate is inactive",
+  "no-products": "No products matched the filter",
+  "missing-input": "Required product or cart data is unavailable",
+  "no-tier": "No tier matched the pricing value",
+  "amount-limit": "Calculated amount is outside the supported range",
+};
 
 function money(amount: number, currency: string) {
   return `${formatRateAmount(amount, currency)} ${currency}`;
@@ -50,7 +58,10 @@ export function CheckoutPricingResults({
   trace: PricingTrace | null;
   rateCount: number;
 }) {
-  const summary = Object.prototype.hasOwnProperty.call(pricingReasonText, reason)
+  const summary = Object.prototype.hasOwnProperty.call(
+    pricingReasonText,
+    reason,
+  )
     ? pricingReasonText[reason as PricingReason]
     : "Checkout pricing outcome unavailable.";
   return (
@@ -75,6 +86,12 @@ export function CheckoutPricingResults({
             <s-paragraph>
               Matched region: {trace.region?.name ?? "None"}
             </s-paragraph>
+            {trace.pricingSubtotal !== undefined && trace.pricingCurrency ? (
+              <s-paragraph>
+                Pricing subtotal after discounts ·{" "}
+                {money(trace.pricingSubtotal, trace.pricingCurrency)}
+              </s-paragraph>
+            ) : null}
             {trace.scenarios.length > 0 ? (
               <s-stack gap="small">
                 <s-heading>Scenarios evaluated</s-heading>
@@ -142,7 +159,7 @@ export function CheckoutPricingResults({
                     </s-table-header>
                     <s-table-header listSlot="labeled">Scenario</s-table-header>
                     <s-table-header listSlot="labeled" format="numeric">
-                      Fixed price
+                      Price before settings rounding
                     </s-table-header>
                     <s-table-header listSlot="labeled" format="numeric">
                       Final price
@@ -165,6 +182,49 @@ export function CheckoutPricingResults({
                     ))}
                   </s-table-body>
                 </s-table>
+                {trace.rates
+                  .filter(
+                    (rate) =>
+                      rate.steps?.length &&
+                      (rate.steps.length > 1 || rate.steps[0].detail),
+                  )
+                  .map((rate) => (
+                    <s-box
+                      key={rate.id}
+                      border="base"
+                      padding="base"
+                      borderRadius="base"
+                    >
+                      <s-stack gap="small">
+                        <s-heading>{rate.name}</s-heading>
+                        {rate.tags?.length ? (
+                          <s-text>Tags · {rate.tags.join(", ")}</s-text>
+                        ) : null}
+                        <s-unordered-list>
+                          {rate.steps?.map((step, index) => (
+                            <s-list-item key={index}>
+                              {step.label} · {money(step.amount, rate.currency)}
+                              {step.detail ? ` · ${step.detail}` : ""}
+                            </s-list-item>
+                          ))}
+                        </s-unordered-list>
+                      </s-stack>
+                    </s-box>
+                  ))}
+              </s-stack>
+            ) : null}
+            {trace.rejectedRates?.length ? (
+              <s-stack gap="small">
+                <s-heading>Rates skipped</s-heading>
+                <s-unordered-list>
+                  {trace.rejectedRates.map((rate, index) => (
+                    <s-list-item key={index}>
+                      {rate.name} · {rate.scenario} ·{" "}
+                      {rejectedLabels[rate.reason]}
+                      {rate.detail ? ` · ${rate.detail}` : ""}
+                    </s-list-item>
+                  ))}
+                </s-unordered-list>
               </s-stack>
             ) : null}
           </>

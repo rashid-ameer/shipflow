@@ -10,13 +10,16 @@ import {
 } from "react-router";
 import {
   allowedOperators,
+  advancedProductScopes,
+  basicScopes,
   conditionDefinitions,
+  countries,
   operatorLabels,
-  parseMoney,
   rateIdPattern,
   ratesPaths,
   validateRateCondition,
-  validName,
+  validateRateDraft,
+  supportsAdvancedScope,
   type ConditionDraft,
   type RateDraft,
   type ScenarioDraft,
@@ -31,6 +34,10 @@ import {
 } from "../models/calculated-rates.server";
 import { requireRatesStore } from "../models/rates-access.server";
 import { getStorePricingContext } from "../models/carrier-shopify.server";
+import {
+  RatePricingEditor,
+  rateSummary,
+} from "../components/rate-pricing-editor";
 
 const SAVE_BAR = "scenario-save-bar";
 const empty: ScenarioDraft = {
@@ -220,12 +227,18 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
         conditions[entry.index] = values;
         setDraft({ ...draft, conditions });
       } else {
-        const name = validName(entry.value.name, "shipping rate");
-        parseMoney(entry.value.price, initial.currency);
-        if (entry.value.description.trim().length > 250)
-          throw new Error("Use up to 250 characters for the description.");
+        const rate = validateRateDraft(
+          entry.value,
+          initial.currency,
+          initial.weightUnit,
+        );
         const exists = draft.rates.some((rate) => rate.id === entry.value.id);
-        const next = { ...entry.value, name };
+        const next = {
+          ...entry.value,
+          name: rate.name,
+          description: rate.description,
+          pricing: rate.pricing,
+        };
         setDraft({
           ...draft,
           rates: exists
@@ -428,8 +441,12 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
                           gap="small"
                         >
                           <s-text>
-                            {value.name} · {initial.currency} {value.price}
+                            {value.name} ·{" "}
+                            {rateSummary(value, initial.currency ?? "")}
                           </s-text>
+                          {value.active === false ? (
+                            <s-badge tone="neutral">Inactive</s-badge>
+                          ) : null}
                           <s-stack direction="inline" gap="small">
                             <s-button
                               variant="tertiary"
@@ -509,13 +526,16 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
       <s-modal
         ref={modal as never}
         heading={
-          entry?.type === "rate" ? "Fixed cart rate" : "Scenario condition"
+          entry?.type === "rate" ? "Shipping rate" : "Scenario condition"
         }
+        size={entry?.type === "rate" ? "large" : "base"}
         onAfterHide={() => setEntry(null)}
       >
         <s-stack gap="base">
           {entryError ? (
-            <s-banner tone="critical" heading={entryError} />
+            <s-banner tone="critical">
+              <s-paragraph>{entryError}</s-paragraph>
+            </s-banner>
           ) : null}
           {entry?.type === "condition" ? (
             <ConditionEditor
@@ -528,9 +548,10 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               }}
             />
           ) : entry?.type === "rate" ? (
-            <RateEditor
+            <RatePricingEditor
               value={entry.value}
               currency={initial.currency ?? ""}
+              weightUnit={initial.weightUnit}
               change={(value) => {
                 setEntryError(undefined);
                 setEntry({ ...entry, value });
@@ -625,6 +646,22 @@ function ConditionEditor({
           </s-option>
         ))}
       </s-select>
+      {value.field === "province" ? (
+        <s-select
+          label="Province or state country"
+          value={value.provinceCountry ?? ""}
+          onChange={(event) =>
+            change({ ...value, provinceCountry: event.currentTarget.value })
+          }
+        >
+          <s-option value="">Any country</s-option>
+          {countries.map(({ code, label }) => (
+            <s-option key={code} value={code}>
+              {label}
+            </s-option>
+          ))}
+        </s-select>
+      ) : null}
       <s-text-field
         label={
           value.operator === "between"
@@ -638,7 +675,7 @@ function ConditionEditor({
           current.kind === "text" || current.kind === "exact"
             ? "Separate multiple values with commas."
             : current.kind === "postal"
-              ? "Enter codes, prefixes such as 1004*, or numeric ranges."
+              ? "Separate codes, 1004* prefixes, 100400:100500 ranges, or HB1_ space prefixes with commas."
               : undefined
         }
         onInput={(e) => change({ ...value, value: e.currentTarget.value })}
@@ -662,10 +699,42 @@ function ConditionEditor({
             })
           }
         >
-          <s-option value="any">Any product</s-option>
-          <s-option value="all">All products</s-option>
-          <s-option value="none">None of the products</s-option>
+          {(Object.keys(basicScopes) as (keyof typeof basicScopes)[]).map(
+            (scope) => (
+              <s-option key={scope} value={scope}>
+                {basicScopes[scope]}
+              </s-option>
+            ),
+          )}
+          {supportsAdvancedScope(value.field)
+            ? (
+                Object.keys(
+                  advancedProductScopes,
+                ) as (keyof typeof advancedProductScopes)[]
+              ).map((scope) => (
+                <s-option key={scope} value={scope}>
+                  {advancedProductScopes[scope]}
+                </s-option>
+              ))
+            : null}
         </s-select>
+      ) : null}
+      {value.scope &&
+      Object.prototype.hasOwnProperty.call(
+        advancedProductScopes,
+        value.scope,
+      ) ? (
+        <s-text-field
+          label={
+            value.scope.startsWith("sku") ? "Scope SKU values" : "Scope tags"
+          }
+          value={value.scopeValue ?? ""}
+          details="Separate values with commas."
+          required
+          onInput={(event) =>
+            change({ ...value, scopeValue: event.currentTarget.value })
+          }
+        />
       ) : null}
       {value.field === "productWeight" ? (
         <s-checkbox
@@ -676,43 +745,6 @@ function ConditionEditor({
           }
         />
       ) : null}
-    </s-stack>
-  );
-}
-
-function RateEditor({
-  value,
-  currency,
-  change,
-}: {
-  value: RateDraft;
-  currency: string;
-  change: (value: RateDraft) => void;
-}) {
-  return (
-    <s-stack gap="base">
-      <s-text-field
-        label="Shipping rate name"
-        value={value.name}
-        required
-        maxLength={120}
-        details="Customers see this name at checkout."
-        onInput={(e) => change({ ...value, name: e.currentTarget.value })}
-      />
-      <s-text-field
-        label={`Fixed price (${currency})`}
-        value={value.price}
-        required
-        onInput={(e) => change({ ...value, price: e.currentTarget.value })}
-      />
-      <s-text-area
-        label="Description"
-        value={value.description}
-        maxLength={250}
-        onInput={(e) =>
-          change({ ...value, description: e.currentTarget.value })
-        }
-      />
     </s-stack>
   );
 }

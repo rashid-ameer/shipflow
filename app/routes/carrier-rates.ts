@@ -55,7 +55,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     cart = await readCart(request).catch(() => null);
     if (!cart)
       return reply({ rates: [], reason: "invalid-request", trace: null }, 400);
-    return reply(await evaluateStoreCart(shop, cart, { simulation: false }));
+    return reply(
+      await evaluateStoreCart(shop, cart, {
+        simulation: false,
+        getGraphql: async () => {
+          const { unauthenticated } = await import("../shopify.server");
+          return (await unauthenticated.admin(shop.shopDomain)).admin.graphql;
+        },
+      }),
+    );
   } catch {
     console.warn(
       "ShipFlow could not calculate rates for a Carrier Service request.",

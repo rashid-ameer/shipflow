@@ -99,6 +99,8 @@ export const pricingReasonText: Record<PricingReason, string> = {
   "no-active-scenarios": "There were no active scenarios to evaluate.",
   "unmatched-conditions": "No scenario satisfied all of its conditions.",
   "no-region-rate": "A scenario matched, but it has no rates for this region.",
+  "no-priced-rate":
+    "A scenario matched, but none of its rates could be calculated.",
   "currency-mismatch":
     "The matching scenario or rate uses a different currency.",
   "no-match": "No eligible shipping rate was found.",

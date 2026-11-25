@@ -31,6 +31,7 @@ export type BasicSettingsInput = UnitInput & {
   appEnabled: boolean;
   multipleRates: MultipleRates;
   rounding: RoundingMethod;
+  discountedCartTotal?: boolean;
 };
 
 export type DeliverySettingsInput = Pick<UnitInput, "weightUnit"> & {
@@ -43,6 +44,7 @@ export type BasicSettingsFormValues = UnitFormValues & {
   appStatus: string;
   multipleRates: string;
   rounding: string;
+  cartTotalBasis?: "original" | "discounted";
 };
 
 export type BasicSettingsField = keyof BasicSettingsFormValues;
@@ -65,6 +67,7 @@ type PersistedSettings = {
     volumetricDivisor: number;
     multipleRates: string;
     rounding: string;
+    discountedCartTotal?: boolean;
   };
 };
 
@@ -79,6 +82,9 @@ export function settingsFormValuesFromStore(
     volumetricDivisor: String(store.settings.volumetricDivisor),
     multipleRates: store.settings.multipleRates,
     rounding: store.settings.rounding,
+    cartTotalBasis: store.settings.discountedCartTotal
+      ? "discounted"
+      : "original",
   };
 }
 
@@ -97,6 +103,7 @@ export function settingsFormValuesAreDirty(
           "volumetricDivisor",
           "multipleRates",
           "rounding",
+          "cartTotalBasis",
         ]
       : ["appStatus", "weightUnit"];
 
@@ -171,6 +178,9 @@ export function parseBasicSettingsFormData(
       volumetricDivisor: Number(values.volumetricDivisor),
       multipleRates: values.multipleRates as MultipleRates,
       rounding: values.rounding as RoundingMethod,
+      ...(values.cartTotalBasis
+        ? { discountedCartTotal: values.cartTotalBasis === "discounted" }
+        : {}),
     },
   };
 }
@@ -193,6 +203,7 @@ export function parseDeliverySettingsFormData(
 }
 
 function valuesFromFormData(formData: FormData): BasicSettingsFormValues {
+  const basis = formData.get("cartTotalBasis");
   return {
     appStatus: String(formData.get("appStatus") ?? ""),
     weightUnit: String(formData.get("weightUnit") ?? ""),
@@ -201,5 +212,8 @@ function valuesFromFormData(formData: FormData): BasicSettingsFormValues {
     volumetricDivisor: String(formData.get("volumetricDivisor") ?? ""),
     multipleRates: String(formData.get("multipleRates") ?? ""),
     rounding: String(formData.get("rounding") ?? ""),
+    ...(basis === "original" || basis === "discounted"
+      ? { cartTotalBasis: basis }
+      : {}),
   };
 }
