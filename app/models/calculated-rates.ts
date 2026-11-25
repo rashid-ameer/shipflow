@@ -27,6 +27,12 @@ import {
 } from "./rate-pricing";
 export { formatRateAmount, moneyDecimals, parseMoney } from "./checkout-values";
 
+import {
+  combineShippingRates,
+  type CombinedRule,
+  type CombinationTrace,
+} from "./combined-rates";
+
 export const ratesPaths = {
   hub: "/app/rates",
   regions: "/app/rates/regions",
@@ -606,7 +612,10 @@ export type PricingTrace = {
     finalAmount: number | null;
     steps?: PriceStep[];
     tags?: string[];
+    consumedBy?: string;
   }[];
+  combinations?: CombinationTrace[];
+  checkoutRateIds?: string[];
   rejectedRates?: {
     name: string;
     scenario: string;
@@ -638,6 +647,8 @@ export type PricingResult = {
     description: string;
     currency: string;
     total_price: string;
+    min_delivery_date?: string;
+    max_delivery_date?: string;
   }[];
   reason: PricingReason;
   trace: PricingTrace | null;
@@ -648,9 +659,16 @@ export function evaluateCarrierCart(
   settings: CheckoutDecisionInput,
   regions: Region[],
   scenarios: Scenario[],
+  combinedRules: CombinedRule[] = [],
 ): PricingResult {
   let region: Region | undefined;
-  const quotes = new Map<string, FixedRate>();
+  const quotes = new Map<
+    string,
+    Pick<FixedRate, "name" | "description" | "currency"> & {
+      minDays?: number | null;
+      maxDays?: number | null;
+    }
+  >();
   const trace: PricingTrace = {
     region: null,
     scenarios: [],
@@ -673,7 +691,7 @@ export function evaluateCarrierCart(
       trace.region = { id: region.id, name: region.name };
       let priority = 0;
       const regionId = region.id;
-      return scenarios.flatMap((scenario) => {
+      const pricedRates = scenarios.flatMap((scenario) => {
         const name = scenario.name ?? "Scenario";
         const conditions = scenario.active
           ? scenario.conditions.map((condition) => ({
@@ -737,6 +755,8 @@ export function evaluateCarrierCart(
           return [
             {
               id: rate.id,
+              name: rate.name,
+              tags: rate.tags ?? [],
               amountInMinorUnits: price.amount,
               priority: priority++,
             },
@@ -746,6 +766,41 @@ export function evaluateCarrierCart(
         outcomes.add(entry.outcome);
         return priced;
       });
+      if (!combinedRules.length || !pricedRates.length) return pricedRates;
+      const { steps, rates } = combineShippingRates(pricedRates, combinedRules);
+      const ruleById = new Map(combinedRules.map((rule) => [rule.id, rule]));
+      const traceById = new Map(trace.rates.map((rate) => [rate.id, rate]));
+      trace.combinations = steps.map((step) => ({
+        ...step,
+        currency: cart.currency,
+      }));
+      for (const step of steps) {
+        if (!("resultId" in step)) continue;
+        const rule = ruleById.get(step.ruleId)!;
+        quotes.set(step.resultId, {
+          name: step.name,
+          currency: cart.currency,
+          description: rule.description,
+          minDays: rule.minDays,
+          maxDays: rule.maxDays,
+        });
+        for (const source of step.sources) {
+          const entry = traceById.get(source.id);
+          if (entry) entry.consumedBy = step.name;
+        }
+        const entry: PricingTrace["rates"][number] = {
+          id: step.resultId,
+          name: step.name,
+          scenario: "Combined rate",
+          currency: cart.currency,
+          amount: step.amount,
+          finalAmount: null,
+          ...(rule.outputTag ? { tags: [rule.outputTag] } : {}),
+        };
+        trace.rates.push(entry);
+        traceById.set(entry.id, entry);
+      }
+      return rates;
     },
   );
   if (!evaluated && decision.kind === "empty")
@@ -767,6 +822,8 @@ export function evaluateCarrierCart(
   const finalAmounts = new Map(
     decision.rates.map((rate) => [rate.id, rate.amountInMinorUnits]),
   );
+  if (trace.combinations?.length)
+    trace.checkoutRateIds = decision.rates.map((rate) => rate.id);
   for (const rate of trace.rates) {
     rate.finalAmount = finalAmounts.get(rate.id) ?? null;
     if (rate.finalAmount !== null && settings.rounding !== "none")
@@ -775,6 +832,12 @@ export function evaluateCarrierCart(
         amount: rate.finalAmount,
       });
   }
+  const now = Date.now();
+  const deliveryDate = (days: number) =>
+    new Date(now + days * 86_400_000)
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " ") + " +0000";
   const rates = decision.rates.flatMap((rate) => {
     const quote = quotes.get(rate.id);
     if (!quote) return [];
@@ -785,10 +848,16 @@ export function evaluateCarrierCart(
     return [
       {
         service_name: quote.name,
-        service_code: `shipflow-${quote.id}`,
+        service_code: `shipflow-${rate.id}`,
         description: quote.description,
         currency: quote.currency,
         total_price: String(amount),
+        ...(quote.minDays != null
+          ? { min_delivery_date: deliveryDate(quote.minDays) }
+          : {}),
+        ...(quote.maxDays != null
+          ? { max_delivery_date: deliveryDate(quote.maxDays) }
+          : {}),
       },
     ];
   });

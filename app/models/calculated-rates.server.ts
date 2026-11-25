@@ -391,15 +391,15 @@ export function rateFormFailure(error: unknown) {
   );
 }
 
-export function requireCarrier(store: Store) {
+export function requireCarrier(store: Store, resource = "scenarios") {
   if (!store.carrierServiceId || store.ccsStatus !== "ENABLED") {
     throw new RateFormError(
-      "Connect the Carrier Service before activating scenarios.",
+      `Connect the Carrier Service before activating ${resource}.`,
     );
   }
 }
 
-async function lockRatesStore<T>(
+export async function lockRatesStore<T>(
   shop: string,
   update: (tx: Prisma.TransactionClient, store: Store) => Promise<T>,
 ) {

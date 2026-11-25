@@ -8,6 +8,7 @@ import {
 } from "react-router";
 import prisma from "../db.server";
 import { ratesPaths } from "../models/calculated-rates";
+import { combinedPaths } from "../models/combined-rates";
 import { requireRatesStore } from "../models/rates-access.server";
 import {
   carrierErrorDetails,
@@ -159,6 +160,17 @@ export default function RatesHub() {
               <s-button variant="primary" href={ratesPaths.scenarios}>
                 View scenarios
               </s-button>
+            </s-stack>
+          </s-stack>
+        </s-section>
+        <s-section heading="Combined shipping rates">
+          <s-stack gap="base">
+            <s-paragraph>
+              Use shipping tags to merge matching scenario rates into one
+              checkout option.
+            </s-paragraph>
+            <s-stack direction="inline" justifyContent="end">
+              <s-button href={combinedPaths.list}>View combined rates</s-button>
             </s-stack>
           </s-stack>
         </s-section>

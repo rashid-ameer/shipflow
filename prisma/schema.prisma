@@ -68,6 +68,7 @@ model Store {
   carrierServiceId  String?        @unique
   regions           ShippingRegion[]
   scenarios         RateScenario[]
+  combinedRates     CombinedRateRule[]
   carrierRequests   CarrierRequest[]
   historyDataRequests HistoryDataRequest[]
 }
@@ -164,6 +165,42 @@ model FixedShippingRate {
 
   @@index([storeId, scenarioId])
   @@index([storeId, regionId])
+}
+
+enum CombinationMethod {
+  sum
+  average
+  highest
+  lowest
+}
+
+enum CombinationRequirement {
+  any
+  all
+}
+
+model CombinedRateRule {
+  id             String                 @id @default(uuid())
+  storeId        String
+  position       Int
+  name           String
+  active         Boolean                @default(false)
+  description    String                 @default("")
+  notes          String                 @default("")
+  minDays        Int?
+  maxDays        Int?
+  method         CombinationMethod
+  requirement    CombinationRequirement
+  tags           String[]
+  requireTwoTags Boolean                @default(false)
+  excludedTags   String[]               @default([])
+  blockingTags   String[]               @default([])
+  useWinningName Boolean                @default(false)
+  outputTag      String                 @default("")
+  updatedAt      DateTime               @updatedAt
+  store          Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, position])
 }
 
 model CarrierRequest {

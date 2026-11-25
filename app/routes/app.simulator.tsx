@@ -9,6 +9,7 @@ import {
   type LoaderFunctionArgs,
 } from "react-router";
 import prisma from "../db.server";
+import { combinedPaths } from "../models/combined-rates";
 import { authenticate } from "../shopify.server";
 import { getOrCreateShop } from "../models/shop-settings.server";
 import {
@@ -47,12 +48,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const store = await getOrCreateShop(session.shop);
   if (store.mode !== "CCS_RATES" || store.onboardingStep !== "COMPLETE")
     return { ccs: false as const };
-  const [context, locations, scenarios] = await Promise.all([
+  const [context, locations, scenarios, combinedRules] = await Promise.all([
     loadRatesContext(admin.graphql, store),
     getSimulatorLocations(admin.graphql).catch(() => null),
     prisma.rateScenario.findMany({
       where: { storeId: store.id },
       orderBy: [{ name: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, active: true },
+    }),
+    prisma.combinedRateRule.findMany({
+      where: { storeId: store.id },
+      orderBy: { position: "asc" },
       select: { id: true, name: true, active: true },
     }),
   ]);
@@ -61,6 +67,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     context,
     locations,
     scenarios,
+    combinedRules,
     testMode: store.testMode,
     useDiscountedTotal: store.settings.discountedCartTotal,
     appEnabled: store.appEnabled,
@@ -141,6 +148,20 @@ export async function action({ request }: ActionFunctionArgs) {
     )
       throw new RateFormError("Choose valid shipping scenarios.");
     const scenarioIds = selected.length ? (selected as string[]) : undefined;
+    const rules = form.getAll("combined");
+    if (
+      !rules.every(
+        (id): id is string => typeof id === "string" && rateIdPattern.test(id),
+      ) ||
+      new Set(rules).size !== rules.length
+    )
+      throw new RateFormError("Choose valid combined rates.");
+    const combinedIds =
+      form.get("includeCombined") === "no"
+        ? []
+        : rules.length
+          ? rules
+          : undefined;
     const locationId = formText(form, "location");
     if (locationId && !/^gid:\/\/shopify\/Location\/[1-9]\d*$/.test(locationId))
       throw new RateFormError("Select a Shopify fulfillment location.");
@@ -199,6 +220,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const result = await evaluateStoreCart(pricingStore, cart, {
       simulation: true,
       scenarioIds,
+      combinedIds,
       getGraphql: async () => admin.graphql,
     });
     return { kind: "result" as const, result, cart: cartSnapshot(cart) };
@@ -259,6 +281,8 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
     customer: "",
   });
   const [selected, setSelected] = useState<string[]>([]);
+  const [selectedCombined, setSelectedCombined] = useState<string[]>([]);
+  const [includeCombined, setIncludeCombined] = useState(true);
   const [testIdentity, setTestIdentity] = useState(initial.testMode);
   const [customerAccess, setCustomerAccess] = useState(initial.customerAccess);
   const [query, setQuery] = useState("");
@@ -277,6 +301,8 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
     values,
     serializedItems,
     selected,
+    selectedCombined,
+    includeCombined,
     testIdentity,
   ]);
   const busy = run.state !== "idle";
@@ -375,6 +401,8 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
     form.set("items", serializedItems);
     form.set("testIdentity", testIdentity ? "yes" : "no");
     selected.forEach((id) => form.append("scenario", id));
+    form.set("includeCombined", includeCombined ? "yes" : "no");
+    selectedCombined.forEach((id) => form.append("combined", id));
     setLastInput(inputKey);
     run.submit(form, { method: "post" });
   }
@@ -716,6 +744,45 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
           )}
         </s-stack>
       </s-section>
+      {initial.combinedRules.length ? (
+        <s-section heading="Combined rates">
+          <s-stack gap="small">
+            <s-checkbox
+              label="Apply combined rates"
+              checked={includeCombined}
+              disabled={busy}
+              onChange={(event) =>
+                setIncludeCombined(event.currentTarget.checked)
+              }
+            />
+            {includeCombined ? (
+              <>
+                <s-paragraph>
+                  Active rules run in their saved order. Select specific rules
+                  to preview them, including inactive drafts.
+                </s-paragraph>
+                {initial.combinedRules.map(({ id, name, active }) => (
+                  <s-checkbox
+                    key={id}
+                    label={active ? name : `${name} (inactive)`}
+                    checked={selectedCombined.includes(id)}
+                    disabled={busy}
+                    onChange={(event) => {
+                      const checked = event.currentTarget.checked;
+                      setSelectedCombined((current) =>
+                        checked
+                          ? [...new Set([...current, id])]
+                          : current.filter((value) => value !== id),
+                      );
+                    }}
+                  />
+                ))}
+                <s-link href={combinedPaths.list}>Manage combined rates</s-link>
+              </>
+            ) : null}
+          </s-stack>
+        </s-section>
+      ) : null}
       {!busy && inputKey === lastInput && run.data?.kind === "error" ? (
         <s-banner tone="critical">
           <s-paragraph>{run.data.message}</s-paragraph>

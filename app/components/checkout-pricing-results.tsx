@@ -9,6 +9,7 @@ import {
   pricingReasonText,
   type CartSnapshot,
 } from "../models/checkout-history";
+import { combinationMethods } from "../models/combined-rates";
 
 const conditionLabels: Record<ConditionOutcome, string> = {
   matched: "Matched",
@@ -43,6 +44,13 @@ const rejectedLabels = {
   "missing-input": "Required product or cart data is unavailable",
   "no-tier": "No tier matched the pricing value",
   "amount-limit": "Calculated amount is outside the supported range",
+};
+const combinationReasons = {
+  "missing-tags": "Required shipping tags are missing",
+  "two-tags": "Fewer than two tags matched",
+  blocked: "A blocking tag is present",
+  excluded: "All matching rates have excluded tags",
+  "amount-limit": "The combined amount exceeds the supported limit",
 };
 
 function money(amount: number, currency: string) {
@@ -145,6 +153,62 @@ export function CheckoutPricingResults({
                 ))}
               </s-stack>
             ) : null}
+            {trace.combinations?.length ? (
+              <s-stack gap="small">
+                <s-heading>Combined rates</s-heading>
+                {trace.combinations.map((step) => (
+                  <s-box
+                    key={step.ruleId}
+                    border="base"
+                    padding="base"
+                    borderRadius="base"
+                  >
+                    <s-stack gap="small">
+                      <s-text type="strong">
+                        {step.ruleName} · {combinationMethods[step.method]}
+                      </s-text>
+                      {"reason" in step ? (
+                        <s-text>
+                          {combinationReasons[step.reason]}
+                          {step.tags?.length
+                            ? ` · ${step.tags.join(", ")}`
+                            : ""}
+                        </s-text>
+                      ) : (
+                        <>
+                          <s-unordered-list>
+                            {step.sources.map((rate) => (
+                              <s-list-item key={rate.id}>
+                                {rate.name} ·{" "}
+                                {money(rate.amount, step.currency)}
+                              </s-list-item>
+                            ))}
+                          </s-unordered-list>
+                          <s-text>
+                            {step.name} · {money(step.amount, step.currency)}
+                          </s-text>
+                        </>
+                      )}
+                    </s-stack>
+                  </s-box>
+                ))}
+              </s-stack>
+            ) : null}
+            {trace.checkoutRateIds?.length ? (
+              <s-stack gap="small">
+                <s-heading>Options at checkout</s-heading>
+                <s-unordered-list>
+                  {trace.checkoutRateIds.map((id) => {
+                    const rate = trace.rates.find((item) => item.id === id);
+                    return rate?.finalAmount != null ? (
+                      <s-list-item key={id}>
+                        {rate.name} · {money(rate.finalAmount, rate.currency)}
+                      </s-list-item>
+                    ) : null;
+                  })}
+                </s-unordered-list>
+              </s-stack>
+            ) : null}
             {trace.rates.length ? (
               <s-stack gap="small">
                 <s-heading>Price breakdown</s-heading>
@@ -174,9 +238,11 @@ export function CheckoutPricingResults({
                           {money(rate.amount, rate.currency)}
                         </s-table-cell>
                         <s-table-cell>
-                          {rate.finalAmount === null
-                            ? "Not selected"
-                            : money(rate.finalAmount, rate.currency)}
+                          {rate.consumedBy
+                            ? `Combined into ${rate.consumedBy}`
+                            : rate.finalAmount === null
+                              ? "Not selected"
+                              : money(rate.finalAmount, rate.currency)}
                         </s-table-cell>
                       </s-table-row>
                     ))}

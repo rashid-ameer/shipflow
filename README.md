@@ -71,6 +71,16 @@ Percentage rates use the applicable merchandise total. Product rates can combine
 
 Run `npm run test:m6` with the local PostgreSQL connection to check the acceptance examples and confirm that saved rates, Simulator, and carrier requests agree. A live checkout needs a CCS-enabled test store.
 
+### Verify combined shipping rates
+
+1. Tag two scenario rates priced at $5 and $8 with `cake` and `candle`. Add a third rate without either tag.
+2. In **Rates → Combined shipping rates**, create a **Sum** rule requiring both tags. In Simulator, select the scenarios and rule if they are still drafts. The original tagged rates should appear in the calculation breakdown and be replaced by a $13 option at checkout. The unrelated option should remain available.
+3. Remove the `candle` tag and repeat. The $13 option should disappear and the individual rates should return. For a live test, use a CCS-enabled development store with ShipFlow configured in its shipping profile.
+
+Rules run in the order shown by **Rule order**. Excluded rates count toward tag presence and stay available as separate options. A tagged output can be used by a later rule. ShipFlow applies the store's multiple-rate selection and rounding after the combinations.
+
+Run `npm run test:m7` with the local PostgreSQL connection to verify rule ordering, tenant isolation, and parity between Simulator and the carrier callback.
+
 ## Inspect or reset local database data
 
 For a visual editor, keep the database container running, export the local `DATABASE_URL` shown above, and run `npx prisma studio`. Prisma Studio opens locally and lets you inspect `Store`, `StoreSettings`, and `Session` records.

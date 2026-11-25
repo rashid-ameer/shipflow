@@ -58,6 +58,9 @@ _Avoid_: Broken market, failed market
 **Checkout Simulator**:
 A merchant-run calculation using a selected cart and shipping context to preview CCS Rates.
 
+**Combined rate**:
+One checkout option calculated from matching tagged shipping rates. Rules run in order, so a later rule can use an earlier result through its output tag.
+
 **Shipping tier**:
 An inclusive range of cart or product values associated with a shipping price. When tiers overlap, the first matching tier wins.
 

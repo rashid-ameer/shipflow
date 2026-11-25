@@ -13,6 +13,7 @@ import {
 import { MULTIPLE_RATE_BEHAVIORS, ROUNDING_METHODS } from "./shipping-settings";
 import { addPricingInputs } from "./checkout-pricing-inputs.server";
 import type { AdminQuery } from "./delivery-customization-admin.server";
+import { loadCombinedRules } from "./combined-rates.server";
 
 type PricingStore = Pick<
   Store,
@@ -56,7 +57,8 @@ export async function evaluateStoreCart(
   store: PricingStore,
   cart: CarrierCart,
   options: (
-    { simulation: true; scenarioIds?: string[] } | { simulation: false }
+    | { simulation: true; scenarioIds?: string[]; combinedIds?: string[] }
+    | { simulation: false }
   ) & { getGraphql?: () => Promise<AdminQuery> },
 ): Promise<PricingResult> {
   const settings: CheckoutDecisionInput = {
@@ -84,7 +86,13 @@ export async function evaluateStoreCart(
       : null);
   if (blocked) return { rates: [], reason: blocked, trace: null };
   const scenarioIds = options.simulation ? options.scenarioIds : undefined;
-  const { regions, scenarios } = await loadActivePricing(store.id, scenarioIds);
+  const [{ regions, scenarios }, combinedRules] = await Promise.all([
+    loadActivePricing(store.id, scenarioIds),
+    loadCombinedRules(
+      store.id,
+      options.simulation ? options.combinedIds : undefined,
+    ),
+  ]);
   if (scenarioIds && scenarios.length !== scenarioIds.length)
     throw new RateFormError(
       "A selected scenario is no longer available. Refresh and try again.",
@@ -100,7 +108,13 @@ export async function evaluateStoreCart(
     hydrated.discountedSubtotal !== undefined
       ? { ...hydrated, subtotal: hydrated.discountedSubtotal }
       : hydrated;
-  const result = evaluateCarrierCart(effective, settings, regions, active);
+  const result = evaluateCarrierCart(
+    effective,
+    settings,
+    regions,
+    active,
+    combinedRules,
+  );
   if (result.trace && effective.subtotal !== cart.subtotal) {
     result.trace.pricingSubtotal = effective.subtotal;
     result.trace.pricingCurrency = cart.currency;
