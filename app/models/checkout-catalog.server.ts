@@ -19,7 +19,7 @@ const VARIANTS = `#graphql
 const LOCATIONS = `#graphql
   query ShipFlowSimulatorLocations($after: String) {
     locations(first: 100, after: $after) {
-      nodes { id name address { countryCode provinceCode } }
+      nodes { id name address { countryCode provinceCode zip city } }
       pageInfo { endCursor hasNextPage }
     }
   }`;
@@ -150,7 +150,12 @@ export async function getSimulatorLines(
 type Location = {
   id: string;
   name: string;
-  address: { countryCode: string | null; provinceCode: string | null };
+  address: {
+    countryCode: string | null;
+    provinceCode: string | null;
+    zip: string | null;
+    city: string | null;
+  };
 };
 type Connection<T> = {
   nodes: T[];
@@ -179,6 +184,8 @@ export async function getSimulatorLocations(graphql: AdminQuery) {
             name,
             country: address.countryCode,
             province: address.provinceCode,
+            postalCode: address.zip ?? undefined,
+            city: address.city ?? undefined,
           },
         ]
       : [],

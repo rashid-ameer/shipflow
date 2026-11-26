@@ -115,3 +115,13 @@ Under **Import product dimensions**, use **Send CSV** to receive the template by
 In a fixed shipping rate, choose **Based on package** and set up cart-attribute or dimension-based packing. Simulator and History show each selected package and its quantity. Cart volume sums the physical units in the cart. Cart length, width, and height are the largest corresponding item dimensions. Volumetric weight uses cubic centimeters divided by the shop’s divisor. A missing required measurement prevents the affected rate from quoting.
 
 Run `npm run test:m8` with the local PostgreSQL connection. The acceptance fixture imports a 40 × 30 × 20 cm variant, calculates 4.8 kg per unit and 9.6 kg for two units, and verifies a $7 carton in the Simulator pricing path and signed carrier callback.
+
+### Live carrier rates
+
+Set `SHIPFLOW_CARRIER_KEY` to a 32-byte hex key generated with `openssl rand -hex 32` and run the database migrations. Keep the key stable across app instances and restarts. Replacing it requires reconnecting UPS.
+
+In CCS Rates mode, open **Settings → Carriers**. Connect a UPS account and provide an origin and destination to test Rating access. Use **Test another route** to discover services for the other route type. In **Rates → Scenarios**, choose **Live carriers**, configure packaging and any fallback, and test the rate in Simulator. Choose a Shopify fulfillment location with a postal code when the rate uses the Shopify origin. Sandbox connections work in Simulator and Test Mode. Use a production connection for live checkout.
+
+UPS is the first implemented provider. The other listed carriers remain unavailable pending adapter work and contract verification. Shipping prices must be returned in the checkout currency. An empty service selection allows all returned services for that route type.
+
+Run `npm run test:m9` against a migrated local PostgreSQL database to verify the quote and fallback with mocked UPS responses.

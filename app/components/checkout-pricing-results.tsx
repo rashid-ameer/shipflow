@@ -45,6 +45,7 @@ const rejectedLabels = {
   "missing-input": "Required product or cart data is unavailable",
   "no-tier": "No tier matched the pricing value",
   "amount-limit": "Calculated amount is outside the supported range",
+  "carrier-unavailable": "Carrier service unavailable",
 };
 const combinationReasons = {
   "missing-tags": "Required shipping tags are missing",

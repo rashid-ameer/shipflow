@@ -89,6 +89,7 @@ export function validatePacking(
   amountType: "fixed" | "percent",
   weightUnit: string,
   dimensionUnit: string,
+  carrier = false,
 ): PackagePricing {
   if (
     !input ||
@@ -121,12 +122,13 @@ export function validatePacking(
     if (input.method === "attributes") {
       if (capacity(next.limit, input.split, currency) <= 0)
         throw new Error("Package limits must be greater than zero.");
-      return {
-        ...emptyPackage,
-        name: next.name,
-        rate: next.rate,
-        limit: next.limit,
-      };
+      if (!carrier)
+        return {
+          ...emptyPackage,
+          name: next.name,
+          rate: next.rate,
+          limit: next.limit,
+        };
     }
     const dims = readDimensions(next, unit);
     const max = parseDecimal(next.maxWeight, 3);
@@ -135,7 +137,7 @@ export function validatePacking(
       throw new Error(
         "Enter all package dimensions and a maximum weight above the empty weight.",
       );
-    return { ...next, limit: "" };
+    return { ...next, limit: input.method === "attributes" ? next.limit : "" };
   });
   if (
     new Set(packages.map(({ name }) => name.toLowerCase())).size !==
@@ -155,7 +157,12 @@ export function validatePacking(
 }
 
 type Line = CarrierCart["lines"][number];
-type Packed = { package: PackageDraft; count: number; detail?: string };
+type Packed = {
+  package: PackageDraft;
+  count: number;
+  detail?: string;
+  contentGrams?: number;
+};
 type PackingResult =
   Packed[] | { reason: "missing-input" | "no-package"; detail: string };
 
@@ -226,6 +233,7 @@ function orientations(size: Size, rotate: boolean): Size[] {
 export function packByDimensions(
   packing: PackagePricing,
   lines: Line[],
+  includeWeights = false,
 ): PackingResult {
   const stack = packing.stack === "length" ? 0 : 1;
   const grams = weightGrams[packing.weightUnit ?? "kg"];
@@ -255,6 +263,11 @@ export function packByDimensions(
     count: number;
   };
   let open: Bin[] = [];
+  const sealed: Bin[] = [];
+  function keep(bin: Bin, bins: Bin[]) {
+    if (bin.space > 1e-9) bins.push(bin);
+    else if (includeWeights) sealed.push(bin);
+  }
   const items = [...lines].sort(
     (a, b) => (lineVolume(b) ?? 0) - (lineVolume(a) ?? 0),
   );
@@ -299,20 +312,26 @@ export function packByDimensions(
       const partial = remaining > 0 ? Math.min(quantity, units) : 0;
       quantity -= partial;
       const result: Bin[] = [];
-      if (full && bin.space - units * rotation![stack] > 1e-9)
-        result.push({
-          ...bin,
-          count: full,
-          space: bin.space - units * rotation![stack],
-          grams: bin.grams - units * item.grams!,
-        });
+      if (full)
+        keep(
+          {
+            ...bin,
+            count: full,
+            space: bin.space - units * rotation![stack],
+            grams: bin.grams - units * item.grams!,
+          },
+          result,
+        );
       if (partial)
-        result.push({
-          ...bin,
-          count: 1,
-          space: bin.space - partial * rotation![stack],
-          grams: bin.grams - partial * item.grams!,
-        });
+        keep(
+          {
+            ...bin,
+            count: 1,
+            space: bin.space - partial * rotation![stack],
+            grams: bin.grams - partial * item.grams!,
+          },
+          result,
+        );
       if (remaining > Number(Boolean(partial)))
         result.push({ ...bin, count: remaining - Number(Boolean(partial)) });
       return result;
@@ -338,15 +357,24 @@ export function packByDimensions(
       [1, units],
     ]) {
       const space = box.size[stack] - filled * rotation[stack];
-      if (boxCount && space > 1e-9)
-        open.push({
-          box,
-          count: boxCount,
-          space,
-          grams: box.capacity - filled * item.grams,
-        });
+      if (boxCount)
+        keep(
+          {
+            box,
+            count: boxCount,
+            space,
+            grams: box.capacity - filled * item.grams,
+          },
+          open,
+        );
     }
     counts.set(box.box, (counts.get(box.box) ?? 0) + count);
   }
-  return [...counts].map(([box, count]) => ({ package: box, count }));
+  return includeWeights
+    ? [...open, ...sealed].map(({ box, grams, count }) => ({
+        package: box.box,
+        count,
+        contentGrams: box.capacity - grams,
+      }))
+    : [...counts].map(([box, count]) => ({ package: box, count }));
 }

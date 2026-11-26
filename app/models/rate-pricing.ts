@@ -258,6 +258,7 @@ export type IneligibleRate =
   | "missing-input"
   | "no-package"
   | "no-tier"
+  | "carrier-unavailable"
   | "amount-limit";
 export type RateQuote =
   | { amount: number; steps: PriceStep[] }
@@ -349,13 +350,24 @@ function measure(
   }
 }
 
-export function quoteRate(rate: FixedRate, cart: CarrierCart): RateQuote {
+export function quoteRate(
+  rate: FixedRate,
+  cart: CarrierCart,
+  base?: PriceStep,
+): RateQuote {
   const pricing = rate.pricing;
   if (rate.active === false) return { reason: "inactive" };
   let amount = rate.amount;
   const currency = cart.currency;
   const steps: PriceStep[] = [];
-  if (pricing?.mode === "package") {
+  if (base) {
+    amount = base.amount;
+    steps.push(base);
+    if (rate.liveCarrier?.override) {
+      amount = parseMoney(rate.liveCarrier.override, currency);
+      steps.push({ label: "Shipping rate override", amount });
+    }
+  } else if (pricing?.mode === "package") {
     const packing = pricing.packing!;
     const filtered = productGroups({ ...pricing, aggregate: "combine" }, cart);
     if (typeof filtered === "string") return { reason: filtered };

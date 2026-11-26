@@ -73,6 +73,7 @@ model Store {
   catalogSync       CatalogSync?
   catalogChanges    CatalogProductChange[]
   carrierRequests   CarrierRequest[]
+  carrierConnections CarrierConnection[]
   historyDataRequests HistoryDataRequest[]
 }
 
@@ -160,6 +161,7 @@ model FixedShippingRate {
   amount      Int
   currency    String
   pricing     Json?
+  liveCarrier Json?
   active      Boolean        @default(true)
   tags        String[]       @default([])
   notes       String         @default("")
@@ -168,6 +170,19 @@ model FixedShippingRate {
 
   @@index([storeId, scenarioId])
   @@index([storeId, regionId])
+}
+
+model CarrierConnection {
+  storeId     String
+  carrier     String
+  credentials String
+  services    Json
+  syncedAt    DateTime?
+  error       String?
+  revision    String
+  store       Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, carrier])
 }
 
 enum CombinationMethod {

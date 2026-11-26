@@ -50,7 +50,7 @@ export function historyFilters(params: URLSearchParams, now = new Date()) {
 }
 
 export type CartSnapshot = {
-  origin: CarrierCart["origin"] | null;
+  origin: CarrierCart["destination"] | null;
   destination: CarrierCart["destination"];
   locale: string | null;
   currency: string;
@@ -69,7 +69,9 @@ export type CartSnapshot = {
 
 export function cartSnapshot(cart: CarrierCart): CartSnapshot {
   return {
-    origin: cart.origin ?? null,
+    origin: cart.origin
+      ? { country: cart.origin.country, province: cart.origin.province }
+      : null,
     destination: cart.destination,
     locale: cart.locale ?? null,
     currency: cart.currency,

@@ -24,6 +24,7 @@ export function PackagePricingEditor({
   weightUnit,
   dimensionUnit,
   change,
+  carrier = false,
 }: {
   pricing: RatePricing;
   packing: PackagePricing;
@@ -31,6 +32,7 @@ export function PackagePricingEditor({
   weightUnit: string;
   dimensionUnit: string;
   change: (patch: Partial<RatePricing>) => void;
+  carrier?: boolean;
 }) {
   const weight = packing.weightUnit ?? weightUnit;
   const unit = packing.dimensionUnit ?? dimensionUnit;
@@ -59,7 +61,9 @@ export function PackagePricingEditor({
   function save() {
     if (!entry) return;
     const packages = [...packing.packages];
-    packages[entry.index ?? packages.length] = entry.box;
+    packages[entry.index ?? packages.length] = carrier
+      ? { ...entry.box, rate: "0" }
+      : entry.box;
     try {
       const validated = validatePacking(
         { ...packing, packages },
@@ -67,6 +71,7 @@ export function PackagePricingEditor({
         pricing.amountType,
         weight,
         unit,
+        carrier,
       );
       change({ packing: validated });
       modal.current?.hideOverlay();
@@ -86,13 +91,17 @@ export function PackagePricingEditor({
     label: string;
     optional?: boolean;
   }[] = [
-    {
-      key: "rate",
-      label:
-        pricing.amountType === "fixed"
-          ? `Package rate (${currency})`
-          : "Package rate (%)",
-    },
+    ...(!carrier
+      ? [
+          {
+            key: "rate" as const,
+            label:
+              pricing.amountType === "fixed"
+                ? `Package rate (${currency})`
+                : "Package rate (%)",
+          },
+        ]
+      : []),
     ...(byAttributes
       ? [
           {
@@ -100,7 +109,9 @@ export function PackagePricingEditor({
             label: `Package max limit (${splitUnit(packing.split, currency, weight)})`,
           },
         ]
-      : [
+      : []),
+    ...(!byAttributes || carrier
+      ? [
           { key: "maxWeight" as const, label: `Maximum weight (${weight})` },
           {
             key: "emptyWeight" as const,
@@ -111,31 +122,39 @@ export function PackagePricingEditor({
             key: axis,
             label: `${axis[0].toUpperCase()}${axis.slice(1)} (${unit})`,
           })),
-        ]),
+        ]
+      : []),
   ];
   return (
     <s-stack gap="base">
-      <s-select
-        label="Packaging method"
-        value={packing.method}
-        onChange={(event) => {
-          const method = event.currentTarget.value as PackagePricing["method"];
-          if (method === packing.method) return;
-          setPreviousPackages({
-            ...previousPackages,
-            [packing.method]: packing.packages,
-          });
-          update({ method, packages: previousPackages[method] ?? [] });
-        }}
-      >
-        <s-option value="attributes">Pack by cart attributes</s-option>
-        <s-option value="dimensions">AI based packaging</s-option>
-      </s-select>
+      {!carrier ? (
+        <s-select
+          label="Packaging method"
+          value={packing.method}
+          onChange={(event) => {
+            const method = event.currentTarget
+              .value as PackagePricing["method"];
+            if (method === packing.method) return;
+            setPreviousPackages({
+              ...previousPackages,
+              [packing.method]: packing.packages,
+            });
+            update({ method, packages: previousPackages[method] ?? [] });
+          }}
+        >
+          <s-option value="attributes">Pack by cart attributes</s-option>
+          <s-option value="dimensions">AI based packaging</s-option>
+        </s-select>
+      ) : null}
       {byAttributes ? (
         <s-select
           label="Package splitting rule"
           value={packing.split}
-          details="ShipFlow uses the smallest package that fits the remaining cart value. It uses the largest package when more than one is needed."
+          details={
+            carrier
+              ? "ShipFlow packs whole items using the cart attribute and weight limits."
+              : "ShipFlow uses the smallest package that fits the remaining cart value. It uses the largest package when more than one is needed."
+          }
           onChange={(event) =>
             update({
               split: event.currentTarget.value as PackagePricing["split"],
@@ -189,73 +208,79 @@ export function PackagePricingEditor({
           </s-paragraph>
         </s-stack>
       )}
-      <s-select
-        label="Shipping rate type"
-        value={pricing.amountType}
-        onChange={(event) =>
-          change({
-            amountType: event.currentTarget.value as RatePricing["amountType"],
-          })
-        }
-      >
-        <s-option value="fixed">Fixed amount</s-option>
-        <s-option value="percent">Percentage of cart total</s-option>
-      </s-select>
-      <s-select
-        label="Product filter"
-        value={filter?.field ?? ""}
-        onChange={(event) => {
-          const field = event.currentTarget.value as ProductField;
-          change({
-            filter: field
-              ? {
-                  field,
-                  operator: filter?.operator ?? "eq",
-                  value: filter?.value ?? "",
-                }
-              : undefined,
-          });
-        }}
-      >
-        <s-option value="">All products</s-option>
-        {Object.entries(productFields).map(([value, label]) => (
-          <s-option value={value} key={value}>
-            {String(label)}
-          </s-option>
-        ))}
-      </s-select>
-      {filter ? (
-        <s-stack gap="small">
+      {!carrier ? (
+        <>
           <s-select
-            label="Filter operator"
-            value={filter.operator}
+            label="Shipping rate type"
+            value={pricing.amountType}
             onChange={(event) =>
               change({
-                filter: {
-                  ...filter,
-                  operator: event.currentTarget.value as typeof filter.operator,
-                },
+                amountType: event.currentTarget
+                  .value as RatePricing["amountType"],
               })
             }
           >
-            {textOperators.map((operator) => (
-              <s-option key={operator} value={operator}>
-                {operatorLabels[operator]}
+            <s-option value="fixed">Fixed amount</s-option>
+            <s-option value="percent">Percentage of cart total</s-option>
+          </s-select>
+          <s-select
+            label="Product filter"
+            value={filter?.field ?? ""}
+            onChange={(event) => {
+              const field = event.currentTarget.value as ProductField;
+              change({
+                filter: field
+                  ? {
+                      field,
+                      operator: filter?.operator ?? "eq",
+                      value: filter?.value ?? "",
+                    }
+                  : undefined,
+              });
+            }}
+          >
+            <s-option value="">All products</s-option>
+            {Object.entries(productFields).map(([value, label]) => (
+              <s-option value={value} key={value}>
+                {String(label)}
               </s-option>
             ))}
           </s-select>
-          <s-text-field
-            required
-            label="Filter values"
-            details="Separate multiple values with commas."
-            value={filter.value}
-            onInput={(event) =>
-              change({
-                filter: { ...filter, value: event.currentTarget.value },
-              })
-            }
-          />
-        </s-stack>
+          {filter ? (
+            <s-stack gap="small">
+              <s-select
+                label="Filter operator"
+                value={filter.operator}
+                onChange={(event) =>
+                  change({
+                    filter: {
+                      ...filter,
+                      operator: event.currentTarget
+                        .value as typeof filter.operator,
+                    },
+                  })
+                }
+              >
+                {textOperators.map((operator) => (
+                  <s-option key={operator} value={operator}>
+                    {operatorLabels[operator]}
+                  </s-option>
+                ))}
+              </s-select>
+              <s-text-field
+                required
+                label="Filter values"
+                details="Separate multiple values with commas."
+                value={filter.value}
+                onInput={(event) =>
+                  change({
+                    filter: { ...filter, value: event.currentTarget.value },
+                  })
+                }
+              />
+            </s-stack>
+          ) : null}
+        </>
       ) : null}
       <s-stack gap="base">
         <s-heading>Packages</s-heading>

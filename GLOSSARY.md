@@ -61,6 +61,12 @@ A merchant-run calculation using a selected cart and shipping context to preview
 **Combined rate**:
 One checkout option calculated from matching tagged shipping rates. Rules run in order, so a later rule can use an earlier result through its output tag.
 
+**Live carrier rate**:
+A shipping rate whose base price comes from a connected carrier. The carrier's service name is shown at checkout.
+
+**Carrier fallback**:
+A rate configured on a live carrier rate that applies when the carrier quote fails.
+
 **Shipping tier**:
 An inclusive range of cart or product values associated with a shipping price. When tiers overlap, the first matching tier wins.
 

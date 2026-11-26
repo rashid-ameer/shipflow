@@ -24,6 +24,7 @@ import {
   type PriceStep,
   type ProductField,
   type RatePricing,
+  type RateQuote,
 } from "./rate-pricing";
 export { formatRateAmount, moneyDecimals, parseMoney } from "./checkout-values";
 
@@ -43,6 +44,11 @@ import {
   type Dimensions,
 } from "./product-dimensions";
 import type { DimensionUnit } from "./shipping-settings";
+import {
+  validateLiveCarrierRate,
+  type LiveCarrierRate,
+  type CarrierQuoteResult,
+} from "./live-carrier";
 
 export const ratesPaths = {
   hub: "/app/rates",
@@ -175,6 +181,7 @@ export type RateDraft = {
   description: string;
   price: string;
   pricing?: RatePricing;
+  liveCarrier?: LiveCarrierRate;
   active?: boolean;
   tags?: string;
   notes?: string;
@@ -348,8 +355,24 @@ export function validateRateDraft(
     throw new Error(
       "Use up to 1,000 characters in notes and 30 tags of up to 60 characters each.",
     );
+  const liveCarrier = rate.liveCarrier
+    ? validateLiveCarrierRate(rate.liveCarrier, currency, unit, dimensionUnit)
+    : undefined;
   const pricing = rate.pricing
-    ? validateRatePricing(rate.pricing, currency, unit, dimensionUnit)
+    ? validateRatePricing(
+        liveCarrier
+          ? {
+              ...rate.pricing,
+              mode: "flat",
+              criteria: "cart",
+              basis: "total",
+              amountType: "fixed",
+            }
+          : rate.pricing,
+        currency,
+        unit,
+        dimensionUnit,
+      )
     : undefined;
   return {
     id: rate.id,
@@ -358,11 +381,13 @@ export function validateRateDraft(
     description,
     currency,
     pricing,
+    liveCarrier,
     active: rate.active !== false,
     tags,
     notes,
-    amount:
-      !pricing || pricing.mode === "flat"
+    amount: liveCarrier
+      ? 0
+      : !pricing || pricing.mode === "flat"
         ? parseMoney(rate.price, currency)
         : 0,
   };
@@ -480,7 +505,7 @@ type Line = {
 export type CarrierCart = {
   currency: string;
   destination: Destination;
-  origin?: Destination;
+  origin?: Destination & { postalCode?: string; city?: string };
   locale?: string;
   customerId?: string;
   postalCode?: string;
@@ -566,6 +591,9 @@ export function normalizeCarrierPayload(input: unknown): CarrierCart | null {
           province: /^[A-Z0-9-]{1,8}$/.test(originProvince)
             ? originProvince
             : null,
+          postalCode:
+            optionalText(origin?.postal_code) ?? optionalText(origin?.zip),
+          city: optionalText(origin?.city),
         }
       : undefined,
     locale: normalizeLocale(rate.locale),
@@ -694,12 +722,70 @@ export type PricingResult = {
   trace: PricingTrace | null;
 };
 
+function priceScenarioRate(
+  rate: FixedRate,
+  cart: CarrierCart,
+  result?: CarrierQuoteResult,
+): { options: { rate: FixedRate; price: RateQuote }[]; unavailable?: string } {
+  const live = rate.liveCarrier;
+  if (!live || rate.active === false)
+    return { options: [{ rate, price: quoteRate(rate, cart) }] };
+  if (result && "quotes" in result) {
+    if (!result.quotes.length)
+      return {
+        options: [],
+        unavailable: "No selected carrier services were returned.",
+      };
+    return {
+      options: result.quotes.map(({ code, amount, name }) => {
+        const option = {
+          ...rate,
+          id: `${rate.id}-${live.carrier}-${code}`,
+          name,
+          description: "",
+        };
+        const price = quoteRate(option, cart, {
+          label: "Carrier quote",
+          amount,
+          detail: result.detail,
+        });
+        return { rate: option, price };
+      }),
+    };
+  }
+  const detail = result?.error ?? "Live carrier quote is unavailable.";
+  const fallback = live.fallback;
+  if (!fallback) return { options: [], unavailable: detail };
+  const option = {
+    ...rate,
+    id: `${rate.id}-carrier-fallback`,
+    name: fallback.name,
+    description: fallback.description,
+    liveCarrier: { ...live, override: undefined },
+  };
+  const amount =
+    fallback.kind === "fixed"
+      ? parseMoney(fallback.value, cart.currency)
+      : Math.round((cart.subtotal * parseDecimal(fallback.value, 3)) / 100);
+  const price = quoteRate(option, cart, {
+    label: "Carrier fallback",
+    amount,
+    detail,
+  });
+  return {
+    options: [
+      { rate: option, price: "reason" in price ? { ...price, detail } : price },
+    ],
+  };
+}
+
 export function evaluateCarrierCart(
   cart: CarrierCart,
   settings: CheckoutDecisionInput,
   regions: Region[],
   scenarios: Scenario[],
   combinedRules: CombinedRule[] = [],
+  liveQuotes: ReadonlyMap<string, CarrierQuoteResult> = new Map(),
 ): PricingResult {
   let region: Region | undefined;
   const quotes = new Map<
@@ -772,35 +858,48 @@ export function evaluateCarrierCart(
           return [];
         }
         const priced = eligible.flatMap((rate) => {
-          const price = quoteRate(rate, cart);
-          if ("reason" in price) {
+          const { options, unavailable } = priceScenarioRate(
+            rate,
+            cart,
+            liveQuotes.get(rate.id),
+          );
+          if (unavailable)
             (trace.rejectedRates ??= []).push({
               name: rate.name,
               scenario: name,
-              ...price,
+              reason: "carrier-unavailable",
+              detail: unavailable,
             });
-            return [];
-          }
-          quotes.set(rate.id, rate);
-          trace.rates.push({
-            id: rate.id,
-            name: rate.name,
-            scenario: name,
-            currency: rate.currency,
-            amount: price.amount,
-            steps: price.steps,
-            ...(rate.tags?.length ? { tags: rate.tags } : {}),
-            finalAmount: null,
-          });
-          return [
-            {
+          return options.flatMap(({ rate, price }) => {
+            if ("reason" in price) {
+              (trace.rejectedRates ??= []).push({
+                name: rate.name,
+                scenario: name,
+                ...price,
+              });
+              return [];
+            }
+            quotes.set(rate.id, rate);
+            trace.rates.push({
               id: rate.id,
               name: rate.name,
-              tags: rate.tags ?? [],
-              amountInMinorUnits: price.amount,
-              priority: priority++,
-            },
-          ];
+              scenario: name,
+              currency: rate.currency,
+              amount: price.amount,
+              steps: price.steps,
+              ...(rate.tags?.length ? { tags: rate.tags } : {}),
+              finalAmount: null,
+            });
+            return [
+              {
+                id: rate.id,
+                name: rate.name,
+                tags: rate.tags ?? [],
+                amountInMinorUnits: price.amount,
+                priority: priority++,
+              },
+            ];
+          });
         });
         if (!priced.length) entry.outcome = "no-priced-rate";
         outcomes.add(entry.outcome);
@@ -925,7 +1024,7 @@ function conditionExpectation(condition: RateCondition) {
     .join(" ");
 }
 
-function conditionOutcome(
+export function conditionOutcome(
   condition: RateCondition,
   cart: CarrierCart,
 ): ConditionOutcome {

@@ -199,7 +199,12 @@ export async function action({ request }: ActionFunctionArgs) {
         province: destination.provinces[0] ?? null,
       },
       origin: location
-        ? { country: location.country, province: location.province }
+        ? {
+            country: location.country,
+            province: location.province,
+            postalCode: location.postalCode,
+            city: location.city,
+          }
         : context.country
           ? { country: context.country, province: null }
           : undefined,

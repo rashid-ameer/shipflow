@@ -34,6 +34,7 @@ import {
 } from "../models/calculated-rates.server";
 import { requireRatesStore } from "../models/rates-access.server";
 import { getStorePricingContext } from "../models/carrier-shopify.server";
+import { getUpsConnection } from "../models/live-carrier.server";
 import {
   RatePricingEditor,
   rateSummary,
@@ -53,9 +54,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const creating = id === "new";
   if (!creating && (!id || !rateIdPattern.test(id)))
     throw new Response("Scenario not found.", { status: 404 });
-  const [saved, context] = await Promise.all([
+  const [saved, context, regions, connection] = await Promise.all([
     creating ? null : getScenario(store.id, id!),
     loadRatesContext(admin.graphql, store),
+    listRegions(store.id),
+    getUpsConnection(store.id),
   ]);
   if (!creating && !saved)
     throw new Response("Scenario not found.", { status: 404 });
@@ -64,7 +67,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     creating,
     revision: saved?.revision ?? null,
     draft: saved?.draft ?? empty,
-    regions: await listRegions(store.id),
+    regions,
+    connection,
     currency: context?.currency ?? null,
     weightUnit: store.settings.weightUnit,
     dimensionUnit: store.settings.dimensionUnit,
@@ -241,6 +245,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
           name: rate.name,
           description: rate.description,
           pricing: rate.pricing,
+          liveCarrier: rate.liveCarrier,
         };
         setDraft({
           ...draft,
@@ -554,6 +559,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
           ) : entry?.type === "rate" ? (
             <RatePricingEditor
               value={entry.value}
+              connection={initial.connection}
               currency={initial.currency ?? ""}
               weightUnit={initial.weightUnit}
               dimensionUnit={initial.dimensionUnit}

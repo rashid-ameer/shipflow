@@ -36,6 +36,13 @@ import {
   type BasicSettingsFormValues,
 } from "../models/shipping-settings";
 import { authenticate } from "../shopify.server";
+import {
+  changeUpsConnection,
+  getUpsConnection,
+} from "../models/live-carrier.server";
+import { CarrierFailure } from "../models/ups-rating.server";
+import { carriers } from "../models/live-carrier";
+import { UpsConnectionPanel } from "../components/carrier-connection";
 
 const SAVE_BAR_ID = "settings-save-bar";
 
@@ -45,14 +52,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (store.onboardingStep !== OnboardingStep.COMPLETE || !store.mode) {
     throw redirect(nextOnboardingPath(store.onboardingStep));
   }
+  const carrierTab =
+    new URL(request.url).searchParams.get("tab") === "carriers" &&
+    store.mode === OperatingMode.CCS_RATES;
   return {
+    carrierTab,
+    connection: carrierTab ? await getUpsConnection(store.id) : null,
     mode:
       store.mode === OperatingMode.CCS_RATES
         ? ("ccs-rates" as const)
         : ("delivery-customization" as const),
     values: settingsFormValuesFromStore(store),
     shopLocale:
-      store.mode === OperatingMode.CCS_RATES
+      store.mode === OperatingMode.CCS_RATES && !carrierTab
         ? await getShopLocale((query) => admin.graphql(query))
         : null,
   };
@@ -66,6 +78,39 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   const formData = await request.formData();
   const intent = formData.get("intent");
+  if (
+    [
+      "carrier-connect",
+      "carrier-sync",
+      "carrier-test",
+      "carrier-disconnect",
+    ].includes(String(intent))
+  ) {
+    if (store.mode !== OperatingMode.CCS_RATES)
+      throw new Response("Carrier connections require CCS Rates mode.", {
+        status: 403,
+      });
+    try {
+      return {
+        ok: true as const,
+        kind: "carrier" as const,
+        message: await changeUpsConnection(store.id, formData),
+        error: null,
+      };
+    } catch (error) {
+      return data(
+        {
+          ok: false as const,
+          kind: "carrier" as const,
+          error:
+            error instanceof CarrierFailure
+              ? error.message
+              : "The UPS connection could not be updated.",
+        },
+        { status: error instanceof CarrierFailure ? 400 : 500 },
+      );
+    }
+  }
 
   if (intent === "switch-mode") {
     const mode = parseOperatingMode(formData.get("mode"));
@@ -160,6 +205,46 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Settings() {
   const settings = useLoaderData<typeof loader>();
+  if (settings.carrierTab)
+    return (
+      <s-page heading="Carriers">
+        <s-link slot="breadcrumb-actions" href="/app/settings">
+          Settings
+        </s-link>
+        <s-section heading="UPS">
+          <s-paragraph>
+            Create a UPS application with Rating access and link your UPS
+            shipper account.
+          </s-paragraph>
+          <s-link href="https://developer.ups.com/get-started" target="_blank">
+            UPS setup instructions
+          </s-link>
+          <UpsConnectionPanel connection={settings.connection} />
+        </s-section>
+        <s-section heading="Other carriers">
+          <s-grid
+            gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+            gap="base"
+          >
+            {Object.entries(carriers)
+              .filter(([code]) => code !== "ups")
+              .map(([code, name]) => (
+                <s-box
+                  key={code}
+                  padding="base"
+                  border="base"
+                  borderRadius="base"
+                >
+                  <s-stack gap="small">
+                    <s-text type="strong">{name}</s-text>
+                    <s-badge>Unavailable</s-badge>
+                  </s-stack>
+                </s-box>
+              ))}
+          </s-grid>
+        </s-section>
+      </s-page>
+    );
   return <SettingsForm key={settings.mode} settings={settings} />;
 }
 
@@ -298,6 +383,11 @@ function SettingsForm({
 
   return (
     <s-page heading="Settings">
+      {isCcs ? (
+        <s-button slot="secondary-actions" href="/app/settings?tab=carriers">
+          Carriers
+        </s-button>
+      ) : null}
       <ui-save-bar id={SAVE_BAR_ID}>
         <button
           type="button"

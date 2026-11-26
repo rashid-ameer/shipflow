@@ -2,6 +2,7 @@ import type { Store, StoreSettings } from "@prisma/client";
 import prisma from "../db.server";
 import {
   evaluateCarrierCart,
+  conditionOutcome,
   matchRegion,
   productConditionFields,
   type CarrierCart,
@@ -18,6 +19,7 @@ import type { AdminQuery } from "./delivery-customization-admin.server";
 import { catalogId } from "./catalog-shopify.server";
 import { dimensionalFactor } from "./product-dimensions";
 import { loadCombinedRules } from "./combined-rates.server";
+import { loadLiveQuotes } from "./live-carrier.server";
 
 type PricingStore = Pick<
   Store,
@@ -129,7 +131,11 @@ export async function evaluateStoreCart(
           scope?.startsWith("sku"),
       ) ||
       rates.some(
-        ({ pricing }) =>
+        ({ pricing, liveCarrier }) =>
+          liveCarrier?.packaging === "individual" ||
+          liveCarrier?.packaging === "dimensions" ||
+          (liveCarrier?.packing &&
+            ["volume", "volumetric"].includes(liveCarrier.packing.split)) ||
           pricing?.filter ||
           pricing?.basis === "volume" ||
           pricing?.basis === "volumetric" ||
@@ -207,6 +213,19 @@ export async function evaluateStoreCart(
     regions,
     active,
     combinedRules,
+    await loadLiveQuotes(
+      store.id,
+      effective,
+      eligible.flatMap(({ conditions, rates }) =>
+        rates.some((rate) => rate.liveCarrier) &&
+        conditions.every(
+          (condition) => conditionOutcome(condition, effective) === "matched",
+        )
+          ? rates.filter((rate) => rate.liveCarrier)
+          : [],
+      ),
+      options.simulation || store.testMode,
+    ),
   );
   if (result.trace && effective.subtotal !== cart.subtotal) {
     result.trace.pricingSubtotal = effective.subtotal;
