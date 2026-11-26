@@ -1,3 +1,4 @@
+import { BorderedCard } from "./bordered-card";
 import type { ReactNode } from "react";
 
 type ModeCardProps = {
@@ -7,7 +8,7 @@ type ModeCardProps = {
 
 export function DeliveryCustomizationCard({ status, action }: ModeCardProps) {
   return (
-    <s-section heading="Delivery Customization">
+    <BorderedCard heading="Delivery Customization">
       <s-stack direction="block" gap="base">
         {status}
         <s-paragraph>
@@ -24,13 +25,13 @@ export function DeliveryCustomizationCard({ status, action }: ModeCardProps) {
         </s-paragraph>
         {action}
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
 
 export function CcsRatesCard({ status, action }: ModeCardProps) {
   return (
-    <s-section heading="CCS Rates">
+    <BorderedCard heading="CCS Rates">
       <s-stack direction="block" gap="base">
         {status}
         <s-paragraph>
@@ -47,6 +48,6 @@ export function CcsRatesCard({ status, action }: ModeCardProps) {
         </s-paragraph>
         {action}
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }

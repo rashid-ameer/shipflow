@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -288,7 +289,7 @@ function DimensionsEditor({
             continuing in the new unit.
           </s-banner>
         ) : null}
-        <s-section heading="Variant dimensions">
+        <BorderedCard heading="Variant dimensions">
           <s-stack gap="base">
             <s-paragraph>
               Enter measurements in {initial.unit}. Leave an unknown dimension
@@ -343,7 +344,7 @@ function DimensionsEditor({
               </s-table-body>
             </s-table>
           </s-stack>
-        </s-section>
+        </BorderedCard>
         <s-stack direction="inline" gap="small" justifyContent="end">
           <s-button href={productsPath} onClick={back}>
             Back

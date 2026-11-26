@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -245,7 +246,7 @@ export default function OnboardingUnits() {
             saveChanges();
           }}
         >
-          <s-section heading="Measurement defaults">
+          <BorderedCard heading="Measurement defaults">
             <s-stack key={resetVersion} direction="block" gap="base">
               <s-select
                 label="Weight unit"
@@ -306,7 +307,7 @@ export default function OnboardingUnits() {
                 required
               />
             </s-stack>
-          </s-section>
+          </BorderedCard>
         </Form>
         <s-stack direction="inline" justifyContent="end">
           <s-button-group>

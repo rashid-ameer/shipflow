@@ -1,3 +1,4 @@
+import { BorderedCard } from "./bordered-card";
 import { useState } from "react";
 
 import type { MarketsDashboardData } from "../models/market-readiness";
@@ -32,7 +33,7 @@ export function MarketsDashboard({
     const shippingUrl = new URL("/admin/settings/shipping", data.manageUrl)
       .href;
     return (
-      <s-section heading="Markets">
+      <BorderedCard heading="Markets">
         <s-stack gap="base">
           <s-paragraph>
             This store uses shipping profiles to control which calculated rates
@@ -56,13 +57,13 @@ export function MarketsDashboard({
             </s-button>
           </s-stack>
         </s-stack>
-      </s-section>
+      </BorderedCard>
     );
   }
 
   return (
     <>
-      <s-section heading="Markets">
+      <BorderedCard heading="Markets">
         <s-stack direction="block" gap="base">
           <s-stack direction="block" gap="small-200">
             {data.status === "available" ? (
@@ -104,7 +105,7 @@ export function MarketsDashboard({
             </s-button>
           </s-stack>
         </s-stack>
-      </s-section>
+      </BorderedCard>
 
       <s-modal id="markets-modal" heading="Markets" size="large">
         {data.status === "available" ? (
@@ -195,7 +196,7 @@ export function MarketsDashboard({
                 </s-table-body>
               </s-table>
             ) : (
-              <s-box padding="base" border="base" borderRadius="base">
+              <s-box padding="base" border="base base solid" borderRadius="base">
                 <s-stack direction="block" gap="small-200" alignItems="center">
                   <s-text type="strong">
                     {filter === "ready"

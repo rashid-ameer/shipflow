@@ -158,7 +158,7 @@ export function UpsConnectionPanel({
             {(["origin", "destination"] as const).map((side) => (
               <s-grid
                 key={side}
-                gridTemplateColumns="repeat(auto-fit, minmax(135px, 1fr))"
+                gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 135px), 1fr))"
                 gap="small"
               >
                 <s-text-field

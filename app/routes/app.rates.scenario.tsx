@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -314,7 +315,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
             </s-paragraph>
           </s-banner>
         ) : null}
-        <s-section heading="Scenario details">
+        <BorderedCard heading="Scenario details">
           <s-stack gap="base">
             <s-text-field
               label="Scenario name"
@@ -348,8 +349,8 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               </s-option>
             </s-select>
           </s-stack>
-        </s-section>
-        <s-section heading="Conditions">
+        </BorderedCard>
+        <BorderedCard heading="Conditions">
           <s-stack gap="base">
             {draft.conditions.length === 0 ? (
               <s-paragraph>
@@ -364,7 +365,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
                     <s-badge>AND</s-badge>
                   </s-stack>
                 ) : null}
-                <s-box padding="base" border="base" borderRadius="base">
+                <s-box padding="base" border="base base solid" borderRadius="base">
                   <s-stack
                     direction="inline"
                     justifyContent="space-between"
@@ -427,8 +428,8 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               </s-button>
             </s-stack>
           </s-stack>
-        </s-section>
-        <s-section heading="Regions and rates">
+        </BorderedCard>
+        <BorderedCard heading="Regions and rates">
           <s-stack gap="base">
             {initial.regions.length === 0 ? (
               <s-paragraph>
@@ -442,7 +443,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               return (
                 <s-box
                   padding="base"
-                  border="base"
+                  border="base base solid"
                   borderRadius="base"
                   key={region.id}
                 >
@@ -527,7 +528,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               </s-button>
             </s-stack>
           </s-stack>
-        </s-section>
+        </BorderedCard>
         <s-stack direction="inline" justifyContent="end" gap="small">
           <s-button variant="secondary" href={ratesPaths.scenarios}>
             Back

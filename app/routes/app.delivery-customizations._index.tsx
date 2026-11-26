@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import {
   redirect,
   useLoaderData,
@@ -79,7 +80,7 @@ export default function DeliveryCustomizations() {
             </s-button>
           </s-banner>
         ) : null}
-        <s-section
+        <BorderedCard
           heading={
             rows.length === 0
               ? "Create your first customization"
@@ -139,7 +140,7 @@ export default function DeliveryCustomizations() {
               </s-button>
             </s-stack>
           </s-stack>
-        </s-section>
+        </BorderedCard>
       </s-stack>
     </s-page>
   );

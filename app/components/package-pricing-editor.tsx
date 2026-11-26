@@ -288,7 +288,7 @@ export function PackagePricingEditor({
           packing.packages.map((box, index) => (
             <s-box
               key={box.name}
-              border="base"
+              border="base base solid"
               borderRadius="base"
               padding="base"
             >

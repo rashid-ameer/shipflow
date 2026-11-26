@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -412,7 +413,7 @@ export default function Settings() {
       ) : null}
       {settings.tab === "carriers" ? (
         <>
-          <s-section heading="UPS">
+          <BorderedCard heading="UPS">
             <s-paragraph>
               Create a UPS application with Rating access and link your UPS
               shipper account.
@@ -424,10 +425,10 @@ export default function Settings() {
               UPS setup instructions
             </s-link>
             <UpsConnectionPanel connection={settings.connection} />
-          </s-section>
-          <s-section heading="Other carriers">
+          </BorderedCard>
+          <BorderedCard heading="Other carriers">
             <s-grid
-              gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+              gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 160px), 1fr))"
               gap="base"
             >
               {Object.entries(carriers)
@@ -436,7 +437,7 @@ export default function Settings() {
                   <s-box
                     key={code}
                     padding="base"
-                    border="base"
+                    border="base base solid"
                     borderRadius="base"
                   >
                     <s-stack gap="small">
@@ -446,7 +447,7 @@ export default function Settings() {
                   </s-box>
                 ))}
             </s-grid>
-          </s-section>
+          </BorderedCard>
         </>
       ) : null}
     </s-page>
@@ -616,7 +617,7 @@ function SettingsForm({
           </s-banner>
         ) : null}
 
-        <s-section heading="App status">
+        <BorderedCard heading="App status">
           <s-stack direction="block" gap="base">
             <s-select
               key={`status-${resetVersion}`}
@@ -637,7 +638,7 @@ function SettingsForm({
               saved rules or settings.
             </s-paragraph>
           </s-stack>
-        </s-section>
+        </BorderedCard>
 
         {isCcs && settings.shopLocale ? (
           <CcsSettings
@@ -658,7 +659,7 @@ function SettingsForm({
           />
         )}
 
-        <s-section heading="Operating mode">
+        <BorderedCard heading="Operating mode">
           <s-stack direction="block" gap="base">
             <s-paragraph>
               <s-text type="strong">Current mode: </s-text>
@@ -679,7 +680,7 @@ function SettingsForm({
               </s-button>
             </s-stack>
           </s-stack>
-        </s-section>
+        </BorderedCard>
       </s-stack>
 
       <s-modal
@@ -731,10 +732,10 @@ function CcsSettings({
   onChange: (event: Event) => void;
 }) {
   return (
-    <s-section heading="Basic app setup">
+    <BorderedCard heading="Basic app setup">
       <s-stack direction="block" gap="base">
         <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))"
+          gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 220px), 1fr))"
           gap="base"
         >
           <s-text-field
@@ -755,7 +756,7 @@ function CcsSettings({
           </s-paragraph>
         ) : null}
         <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))"
+          gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 220px), 1fr))"
           gap="base"
         >
           <WeightUnitField
@@ -842,7 +843,7 @@ function CcsSettings({
           </s-select>
         </s-grid>
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
 
@@ -858,7 +859,7 @@ function DeliveryCustomizationSettings({
   onChange: (event: Event) => void;
 }) {
   return (
-    <s-section heading="Delivery Customization settings">
+    <BorderedCard heading="Delivery Customization settings">
       <s-stack direction="block" gap="base">
         <s-paragraph>
           This weight unit is used when ShipFlow evaluates weight-based delivery
@@ -871,7 +872,7 @@ function DeliveryCustomizationSettings({
           onChange={onChange}
         />
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
 

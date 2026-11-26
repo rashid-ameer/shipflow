@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { randomUUID } from "node:crypto";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -360,7 +361,7 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
             </s-paragraph>
           </s-banner>
         ) : null}
-        <s-section heading="Customization details">
+        <BorderedCard heading="Customization details">
           <s-stack gap="base">
             <s-text-field
               label="Customization name"
@@ -411,9 +412,9 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
               })}
             </s-stack>
           </s-stack>
-        </s-section>
+        </BorderedCard>
 
-        <s-section heading="Conditions">
+        <BorderedCard heading="Conditions">
           <s-stack gap="base">
             <s-paragraph>
               {draft.conditions.length
@@ -460,10 +461,10 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
               </s-button>
             </s-stack>
           </s-stack>
-        </s-section>
+        </BorderedCard>
 
         {(["ifActions", "elseActions"] as const).map((branch) => (
-          <s-section
+          <BorderedCard
             key={branch}
             heading={
               branch === "ifActions"
@@ -524,10 +525,10 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
                 </s-button>
               </s-stack>
             </s-stack>
-          </s-section>
+          </BorderedCard>
         ))}
 
-        <s-section heading="Status">
+        <BorderedCard heading="Status">
           <s-stack gap="base">
             {checkout ? (
               <s-stack direction="inline" gap="small-200">
@@ -552,7 +553,7 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
               <s-option value="inactive">Inactive</s-option>
             </s-select>
           </s-stack>
-        </s-section>
+        </BorderedCard>
         {dirty && !valid.ok ? <s-paragraph>{valid.error}</s-paragraph> : null}
         <s-stack direction="inline" gap="small" justifyContent="end">
           <s-button href={deliveryPaths.list} variant="secondary">
@@ -884,7 +885,7 @@ function EntryRow({
   onMove: (step: number) => void;
 }) {
   return (
-    <s-box border="base" borderRadius="base" padding="small">
+    <s-box border="base base solid" borderRadius="base" padding="small">
       <s-stack
         direction="inline"
         gap="small"

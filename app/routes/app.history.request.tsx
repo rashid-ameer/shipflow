@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { data, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import {
@@ -63,7 +64,7 @@ export default function CheckoutHistoryRequestPage() {
         </s-banner>
       ) : (
         <s-stack gap="base">
-          <s-section heading="Request details">
+          <BorderedCard heading="Request details">
             <s-stack gap="small">
               <s-text>History ID: {entry.id}</s-text>
               <s-text>Received: {historyTime(entry.receivedAt)}</s-text>
@@ -81,7 +82,7 @@ export default function CheckoutHistoryRequestPage() {
                 <s-text>Destination: {formatPlace(entry)}</s-text>
               ) : null}
             </s-stack>
-          </s-section>
+          </BorderedCard>
           {entry.snapshot ? (
             <CheckoutCartDetails snapshot={entry.snapshot} />
           ) : (

@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -148,7 +149,7 @@ function HistoryDataRequests({
     }
   }
   return (
-    <s-section heading="Customer data requests">
+    <BorderedCard heading="Customer data requests">
       <s-stack gap="small">
         <s-paragraph>
           Download the checkout data Shopify requested for each customer.
@@ -174,7 +175,7 @@ function HistoryDataRequests({
           </s-stack>
         ))}
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
 
@@ -205,7 +206,7 @@ function HistoryList({
     setParams(next);
   }
   return (
-    <s-section heading="Requests">
+    <BorderedCard heading="Requests">
       <s-stack gap="base">
         <s-search-field
           label="Search customer name or History ID"
@@ -363,6 +364,6 @@ function HistoryList({
           </s-table>
         )}
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }

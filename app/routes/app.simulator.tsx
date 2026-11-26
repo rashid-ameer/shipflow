@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -440,7 +441,7 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
           </s-button>
         </s-banner>
       ) : null}
-      <s-section heading="Cart items">
+      <BorderedCard heading="Cart items">
         <s-stack gap="base">
           {error ? (
             <s-banner tone="warning">
@@ -456,7 +457,7 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
             <s-box
               key={item.id}
               padding="base"
-              border="base"
+              border="base base solid"
               borderRadius="base"
             >
               <s-stack
@@ -513,8 +514,8 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
             </s-button>
           </s-stack>
         </s-stack>
-      </s-section>
-      <s-section heading="Destination">
+      </BorderedCard>
+      <BorderedCard heading="Destination">
         <s-stack gap="base">
           <s-select
             label="Country"
@@ -571,8 +572,8 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
             onInput={(event) => update("street", event.currentTarget.value)}
           />
         </s-stack>
-      </s-section>
-      <s-section heading="Checkout options">
+      </BorderedCard>
+      <BorderedCard heading="Checkout options">
         <s-stack gap="base">
           {initial.useDiscountedTotal ? (
             <s-text-field
@@ -719,8 +720,8 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
             />
           ) : null}
         </s-stack>
-      </s-section>
-      <s-section heading="Scenarios">
+      </BorderedCard>
+      <BorderedCard heading="Scenarios">
         <s-stack gap="small">
           <s-paragraph>
             Active scenarios run by default. Select specific scenarios to
@@ -749,9 +750,9 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
             </s-button>
           )}
         </s-stack>
-      </s-section>
+      </BorderedCard>
       {initial.combinedRules.length ? (
-        <s-section heading="Combined rates">
+        <BorderedCard heading="Combined rates">
           <s-stack gap="small">
             <s-checkbox
               label="Apply combined rates"
@@ -787,7 +788,7 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
               </>
             ) : null}
           </s-stack>
-        </s-section>
+        </BorderedCard>
       ) : null}
       {!busy && inputKey === lastInput && run.data?.kind === "error" ? (
         <s-banner tone="critical">

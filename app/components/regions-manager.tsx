@@ -1,3 +1,4 @@
+import { BorderedCard } from "./bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -53,7 +54,7 @@ export function RegionsManager({ regions }: { regions: Regions }) {
 
   return (
     <>
-      <s-section heading="Regions">
+      <BorderedCard heading="Regions">
         <s-stack gap="base">
           {regions.length === 0 ? (
             <s-paragraph>
@@ -136,7 +137,7 @@ export function RegionsManager({ regions }: { regions: Regions }) {
             </s-button>
           </s-stack>
         </s-stack>
-      </s-section>
+      </BorderedCard>
       <s-modal
         ref={editor as never}
         heading={draft?.id ? "Edit region" : "Create region"}

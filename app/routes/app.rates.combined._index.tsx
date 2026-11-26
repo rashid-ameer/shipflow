@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -146,7 +147,7 @@ export default function CombinedRatesPage() {
           </s-banner>
         ) : null}
         {total ? (
-          <s-section heading="Rules">
+          <BorderedCard heading="Rules">
             <s-stack gap="base">
               <s-grid
                 gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))"
@@ -331,13 +332,13 @@ export default function CombinedRatesPage() {
                 <s-paragraph>No combined rates match your filters.</s-paragraph>
               )}
             </s-stack>
-          </s-section>
+          </BorderedCard>
         ) : (
-          <s-section heading="No combined rates yet">
+          <BorderedCard heading="No combined rates yet">
             <s-paragraph>
               Combine tagged shipping rates into one checkout option.
             </s-paragraph>
-          </s-section>
+          </BorderedCard>
         )}
         <s-stack direction="inline" gap="small" justifyContent="end">
           <s-button href={diagnosticsPaths.simulator}>Open simulator</s-button>

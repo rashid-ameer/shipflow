@@ -1,3 +1,4 @@
+import { BorderedCard } from "../../components/bordered-card";
 import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData } from "react-router";
@@ -30,7 +31,7 @@ export default function Auth() {
       <script src="https://cdn.shopify.com/shopifycloud/polaris.js" />
       <s-page>
         <Form method="post">
-        <s-section heading="Log in">
+        <BorderedCard heading="Log in">
           <s-text-field
             name="shop"
             label="Shop domain"
@@ -41,7 +42,7 @@ export default function Auth() {
             error={errors.shop}
           ></s-text-field>
           <s-button type="submit">Log in</s-button>
-        </s-section>
+        </BorderedCard>
         </Form>
       </s-page>
     </>

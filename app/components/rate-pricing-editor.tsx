@@ -204,7 +204,7 @@ export function RatePricingEditor({
             }
           />
           <s-grid
-            gridTemplateColumns="repeat(auto-fit, minmax(155px, 1fr))"
+            gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))"
             gap="small"
           >
             <s-number-field
@@ -439,7 +439,7 @@ export function RatePricingEditor({
                   {tiers.map((tier, index) => (
                     <s-box
                       key={index}
-                      border="base"
+                      border="base base solid"
                       padding="base"
                       borderRadius="base"
                     >
@@ -759,7 +759,7 @@ function LiveCarrierFields({
       </s-select>
       {live.origin.type === "custom" ? (
         <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(135px, 1fr))"
+          gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 135px), 1fr))"
           gap="small"
         >
           <Field

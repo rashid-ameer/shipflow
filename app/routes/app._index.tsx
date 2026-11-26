@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -292,7 +293,7 @@ export default function Dashboard() {
           </s-banner>
         ) : null}
 
-        <s-section heading="Setup checklist" id="setup-checklist">
+        <BorderedCard heading="Setup checklist" id="setup-checklist">
           <s-stack direction="block" gap="base">
             {isCcs ? (
               <>
@@ -332,10 +333,10 @@ export default function Dashboard() {
               </>
             )}
           </s-stack>
-        </s-section>
+        </BorderedCard>
 
         {dashboard.delivery ? (
-          <s-section heading="Delivery customizations">
+          <BorderedCard heading="Delivery customizations">
             <s-stack gap="base">
               <s-stack direction="inline" gap="base">
                 <s-text>{dashboard.delivery.total} saved</s-text>
@@ -362,11 +363,11 @@ export default function Dashboard() {
                 </s-button>
               </s-stack>
             </s-stack>
-          </s-section>
+          </BorderedCard>
         ) : (
-          <s-section heading="Activity">
+          <BorderedCard heading="Activity">
             <s-grid
-              gridTemplateColumns="repeat(auto-fit, minmax(180px, 1fr))"
+              gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 180px), 1fr))"
               gap="base"
             >
               <Metric
@@ -382,11 +383,11 @@ export default function Dashboard() {
                 value={String(dashboard.rates?.tests ?? 0)}
               />
             </s-grid>
-          </s-section>
+          </BorderedCard>
         )}
 
-        <s-section heading="Operating mode">
-          <s-box padding="base" border="base" borderRadius="base">
+        <BorderedCard heading="Operating mode">
+          <s-box padding="base" border="base base solid" borderRadius="base">
             <s-stack direction="block" gap="base">
               <s-paragraph>
                 {currentModeLabel} is the selected operating mode.
@@ -402,7 +403,7 @@ export default function Dashboard() {
               </s-stack>
             </s-stack>
           </s-box>
-        </s-section>
+        </BorderedCard>
       </s-stack>
 
       <s-modal
@@ -504,7 +505,7 @@ function ChecklistItem({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <s-box padding="base" border="base" borderRadius="base">
+    <s-box padding="base" border="base base solid" borderRadius="base">
       <s-stack direction="block" gap="small-200">
         <s-text tone="neutral" color="subdued">
           {label}

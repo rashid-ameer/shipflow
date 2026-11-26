@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import {
   redirect,
   type LoaderFunctionArgs,
@@ -19,23 +20,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function OnboardingWelcome() {
   return (
     <s-page heading="Welcome to ShipFlow" inlineSize="base">
-      <s-section heading="What you can do">
+      <BorderedCard heading="What you can do">
         <s-stack direction="block" gap="base">
-          <s-box padding="base" border="base" borderRadius="base">
+          <s-box padding="base" border="base base solid" borderRadius="base">
             <s-heading>Customize delivery options</s-heading>
             <s-paragraph>
               Hide, show, rename, reorder, or sort methods Shopify already
               shows. Carrier Calculated Shipping is not required.
             </s-paragraph>
           </s-box>
-          <s-box padding="base" border="base" borderRadius="base">
+          <s-box padding="base" border="base base solid" borderRadius="base">
             <s-heading>Calculate custom shipping rates</s-heading>
             <s-paragraph>
               Return your own prices using cart, product, customer, distance,
               and dimension conditions.
             </s-paragraph>
           </s-box>
-          <s-box padding="base" border="base" borderRadius="base">
+          <s-box padding="base" border="base base solid" borderRadius="base">
             <s-heading>Test and explain results</s-heading>
             <s-paragraph>
               Use Test Mode first, then verify calculated rates with Simulator
@@ -48,7 +49,7 @@ export default function OnboardingWelcome() {
             </s-button>
           </s-stack>
         </s-stack>
-      </s-section>
+      </BorderedCard>
     </s-page>
   );
 }

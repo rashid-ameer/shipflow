@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import {
   useFetcher,
@@ -325,7 +326,7 @@ export default function Products() {
             </s-stack>
           </s-banner>
         ) : null}
-        <s-section heading="Catalog sync">
+        <BorderedCard heading="Catalog sync">
           <s-stack gap="small">
             {sync.job ? (
               <s-badge tone="info">
@@ -359,8 +360,8 @@ export default function Products() {
               }
             />
           </s-stack>
-        </s-section>
-        <s-section heading="Synced products">
+        </BorderedCard>
+        <BorderedCard heading="Synced products">
           <s-stack gap="base">
             <s-search-field
               label="Search by product name or tag"
@@ -417,7 +418,7 @@ export default function Products() {
               <s-text color="subdued">{count.toLocaleString()} products</s-text>
             ) : null}
           </s-stack>
-        </s-section>
+        </BorderedCard>
       </s-stack>
       <s-modal
         id="dimension-mapping"

@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -259,7 +260,7 @@ function CombinedEditor({
             <s-paragraph>{error}</s-paragraph>
           </s-banner>
         ) : null}
-        <s-section heading="Checkout details">
+        <BorderedCard heading="Checkout details">
           <s-stack gap="base">
             <s-text-field
               label="Shipping rate name"
@@ -320,8 +321,8 @@ function CombinedEditor({
               />
             </s-grid>
           </s-stack>
-        </s-section>
-        <s-section heading="Combine tagged rates">
+        </BorderedCard>
+        <BorderedCard heading="Combine tagged rates">
           <s-stack gap="base">
             <s-text-field
               label="Shipping rate tags to combine"
@@ -425,8 +426,8 @@ function CombinedEditor({
               ),
             )}
           </s-stack>
-        </s-section>
-        <s-section heading="Rule settings">
+        </BorderedCard>
+        <BorderedCard heading="Rule settings">
           <s-stack gap="base">
             <s-select
               label="Status"
@@ -457,7 +458,7 @@ function CombinedEditor({
               onInput={(event) => patch({ notes: event.currentTarget.value })}
             />
           </s-stack>
-        </s-section>
+        </BorderedCard>
         <s-stack direction="inline" justifyContent="end" gap="small">
           <s-button href={combinedPaths.list} onClick={back}>
             Back

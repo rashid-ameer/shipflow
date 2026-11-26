@@ -1,3 +1,4 @@
+import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -132,7 +133,7 @@ export default function ScenariosPage() {
             </s-paragraph>
           </s-banner>
         ) : null}
-        <s-section
+        <BorderedCard
           heading={
             total === 0 ? "Create your first scenario" : "Saved scenarios"
           }
@@ -326,7 +327,7 @@ export default function ScenariosPage() {
               </s-button>
             </s-stack>
           </s-stack>
-        </s-section>
+        </BorderedCard>
       </s-stack>
       <s-modal
         ref={modal as never}

@@ -1,3 +1,4 @@
+import { BorderedCard } from "./bordered-card";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -112,7 +113,7 @@ function PreferenceForm({
     fetcher.submit(body, { method: "post" });
   }
   return (
-    <s-section heading={title}>
+    <BorderedCard heading={title}>
       <ui-save-bar id={saveBar}>
         <button
           type="button"
@@ -147,7 +148,7 @@ function PreferenceForm({
           ) : null}
         </s-stack>
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
 
@@ -368,7 +369,7 @@ export function ProductSyncSettings({
   const submit = (values: Record<string, string>) =>
     fetcher.submit(values, { method: "post", action: "/app/products" });
   return (
-    <s-section heading="Product sync">
+    <BorderedCard heading="Product sync">
       <s-stack gap="base">
         {fetcher.data?.error || error ? (
           <s-banner tone="critical">{fetcher.data?.error ?? error}</s-banner>
@@ -406,7 +407,7 @@ export function ProductSyncSettings({
           <s-link href="/app/products">Open Products</s-link>
         </s-stack>
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
 
@@ -427,7 +428,7 @@ export function MapsSettings({ connected }: { connected: boolean }) {
       { method: "post" },
     );
   return (
-    <s-section heading="Google Maps">
+    <BorderedCard heading="Google Maps">
       <s-stack gap="base">
         <s-badge tone={connected ? "success" : "neutral"}>
           {connected ? "Connected" : "Not connected"}
@@ -468,6 +469,6 @@ export function MapsSettings({ connected }: { connected: boolean }) {
           ) : null}
         </s-stack>
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }

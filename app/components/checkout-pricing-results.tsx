@@ -1,3 +1,4 @@
+import { BorderedCard } from "./bordered-card";
 import {
   formatRateAmount,
   type ConditionOutcome,
@@ -75,7 +76,7 @@ export function CheckoutPricingResults({
     ? pricingReasonText[reason as PricingReason]
     : "Checkout pricing outcome unavailable.";
   return (
-    <s-section heading="Rates">
+    <BorderedCard heading="Rates">
       <s-stack gap="base">
         {rateCount > 0 ? (
           <s-stack direction="inline">
@@ -124,7 +125,7 @@ export function CheckoutPricingResults({
                   <s-box
                     key={scenario.id ?? index}
                     padding="base"
-                    border="base"
+                    border="base base solid"
                     borderRadius="base"
                   >
                     <s-stack gap="small">
@@ -176,7 +177,7 @@ export function CheckoutPricingResults({
                 {trace.combinations.map((step) => (
                   <s-box
                     key={step.ruleId}
-                    border="base"
+                    border="base base solid"
                     padding="base"
                     borderRadius="base"
                   >
@@ -288,7 +289,7 @@ export function CheckoutPricingResults({
                   .map((rate) => (
                     <s-box
                       key={rate.id}
-                      border="base"
+                      border="base base solid"
                       padding="base"
                       borderRadius="base"
                     >
@@ -327,13 +328,13 @@ export function CheckoutPricingResults({
           </>
         ) : null}
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
 
 export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
   return (
-    <s-section heading="Cart details">
+    <BorderedCard heading="Cart details">
       <s-stack gap="base">
         <s-stack gap="small">
           <s-text>Destination: {formatPlace(snapshot.destination)}</s-text>
@@ -390,6 +391,6 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
           </s-paragraph>
         ) : null}
       </s-stack>
-    </s-section>
+    </BorderedCard>
   );
 }
