@@ -45,6 +45,17 @@ import {
 } from "./product-dimensions";
 import type { DimensionUnit } from "./shipping-settings";
 import {
+  defaultAppearance,
+  deliveryDays,
+  deliveryEstimate,
+  distanceUnit,
+  distanceUnits,
+  validateRateCode,
+  type Appearance,
+  type DistanceUnit,
+  type ShippingConfiguration,
+} from "./checkout-settings";
+import {
   validateLiveCarrierRate,
   type LiveCarrierRate,
   type CarrierQuoteResult,
@@ -70,6 +81,7 @@ export const conditionDefinitions = {
   cartTotal: { label: "Total", group: "Cart", kind: "money" },
   cartQuantity: { label: "Quantity", group: "Cart", kind: "number" },
   cartWeight: { label: "Weight", group: "Cart", kind: "weight" },
+  cartDistance: { label: "Distance", group: "Cart", kind: "distance" },
   cartLength: { label: "Length", group: "Cart", kind: "dimension" },
   cartWidth: { label: "Width", group: "Cart", kind: "dimension" },
   cartHeight: { label: "Height", group: "Cart", kind: "dimension" },
@@ -162,6 +174,7 @@ export const advancedProductScopes = { ...taggedScopes, ...skuScopes };
 export type ConditionDraft = {
   dimensionUnit?: DimensionUnit;
   weightUnit?: WeightUnit;
+  distanceUnit?: DistanceUnit;
   field: ConditionField;
   operator: Operator;
   value: string;
@@ -182,14 +195,22 @@ export type RateDraft = {
   price: string;
   pricing?: RatePricing;
   liveCarrier?: LiveCarrierRate;
+  serviceCode?: string | null;
+  minDays?: string | number | null;
+  maxDays?: string | number | null;
   active?: boolean;
   tags?: string;
   notes?: string;
 };
-export type FixedRate = Omit<RateDraft, "price" | "tags"> & {
+export type FixedRate = Omit<
+  RateDraft,
+  "price" | "tags" | "minDays" | "maxDays"
+> & {
   amount: number;
   currency: string;
   tags?: string[];
+  minDays?: number | null;
+  maxDays?: number | null;
 };
 export type ScenarioDraft = {
   name: string;
@@ -308,6 +329,7 @@ export function validateScenario(
   unit: string,
   regionIds: string[],
   dimensionUnit = "cm",
+  distance = "km",
 ) {
   const draft = input as Partial<ScenarioDraft> | null;
   const name = validName(draft?.name, "scenario");
@@ -322,7 +344,7 @@ export function validateScenario(
     throw new Error("A scenario can have up to 30 conditions and 100 rates.");
   }
   const conditions = draft.conditions.map((condition) =>
-    validateRateCondition(condition, currency, unit, dimensionUnit),
+    validateRateCondition(condition, currency, unit, dimensionUnit, distance),
   );
   const ids = new Set<string>();
   const rates = draft.rates.map((rate): FixedRate => {
@@ -331,7 +353,7 @@ export function validateScenario(
     if (!rateIdPattern.test(rate.id) || ids.has(rate.id))
       throw new Error("One of the rate entries is invalid.");
     ids.add(rate.id);
-    return validateRateDraft(rate, currency, unit, dimensionUnit);
+    return validateRateDraft(rate, currency, unit, dimensionUnit, distance);
   });
   return { name, active: draft.active, conditions, rates };
 }
@@ -341,6 +363,7 @@ export function validateRateDraft(
   currency: string,
   unit: string,
   dimensionUnit = "cm",
+  distance = "km",
 ): FixedRate {
   const description = textValue(rate.description);
   const tags = [...new Set(textList(textValue(rate.tags)))];
@@ -372,8 +395,15 @@ export function validateRateDraft(
         currency,
         unit,
         dimensionUnit,
+        distance,
       )
     : undefined;
+  const minDays = liveCarrier ? null : deliveryDays(rate.minDays);
+  const maxDays = liveCarrier ? null : deliveryDays(rate.maxDays);
+  if (minDays != null && maxDays != null && minDays > maxDays)
+    throw new Error(
+      "The maximum delivery estimate must be at least the minimum.",
+    );
   return {
     id: rate.id,
     regionId: rate.regionId,
@@ -382,6 +412,9 @@ export function validateRateDraft(
     currency,
     pricing,
     liveCarrier,
+    serviceCode: validateRateCode(rate.serviceCode),
+    minDays,
+    maxDays,
     active: rate.active !== false,
     tags,
     notes,
@@ -398,6 +431,7 @@ export function validateRateCondition(
   currency: string,
   weight: string,
   dimensionUnit = "cm",
+  distance = "km",
 ): RateCondition {
   if (
     !input ||
@@ -475,6 +509,9 @@ export function validateRateCondition(
     ...(kind === "weight"
       ? { weightUnit: asWeightUnit(input.weightUnit ?? weight) }
       : {}),
+    ...(kind === "distance"
+      ? { distanceUnit: distanceUnit(input.distanceUnit ?? distance) }
+      : {}),
     ...(kind === "dimension"
       ? { dimensionUnit: asDimensionUnit(input.dimensionUnit ?? dimensionUnit) }
       : {}),
@@ -505,7 +542,14 @@ type Line = {
 export type CarrierCart = {
   currency: string;
   destination: Destination;
-  origin?: Destination & { postalCode?: string; city?: string };
+  origin?: Destination & {
+    postalCode?: string;
+    city?: string;
+    street?: string;
+  };
+  distanceMeters?: number;
+  distanceError?: string;
+  ukPostal?: boolean;
   locale?: string;
   customerId?: string;
   postalCode?: string;
@@ -594,6 +638,10 @@ export function normalizeCarrierPayload(input: unknown): CarrierCart | null {
           postalCode:
             optionalText(origin?.postal_code) ?? optionalText(origin?.zip),
           city: optionalText(origin?.city),
+          street:
+            [optionalText(origin?.address1), optionalText(origin?.address2)]
+              .filter(Boolean)
+              .join(" ") || undefined,
         }
       : undefined,
     locale: normalizeLocale(rate.locale),
@@ -658,6 +706,8 @@ type ScenarioOutcome =
   | "eligible"
   | "no-priced-rate";
 export type PricingTrace = {
+  distanceMeters?: number;
+  distanceError?: string;
   pricingSubtotal?: number;
   pricingCurrency?: string;
   region: { id: string; name: string } | null;
@@ -681,6 +731,9 @@ export type PricingTrace = {
     steps?: PriceStep[];
     tags?: string[];
     consumedBy?: string;
+    deduplicated?: boolean;
+    serviceCode?: string;
+    deliveryEstimate?: string;
   }[];
   combinations?: CombinationTrace[];
   checkoutRateIds?: string[];
@@ -695,6 +748,7 @@ export type PricingTrace = {
 };
 export type PricingReason =
   | "matched"
+  | "store-fallback"
   | "no-region"
   | "no-active-scenarios"
   | "unmatched-conditions"
@@ -743,6 +797,9 @@ function priceScenarioRate(
           id: `${rate.id}-${live.carrier}-${code}`,
           name,
           description: "",
+          serviceCode: rate.serviceCode
+            ? `${rate.serviceCode}:${live.carrier}:${code}`
+            : undefined,
         };
         const price = quoteRate(option, cart, {
           label: "Carrier quote",
@@ -762,6 +819,7 @@ function priceScenarioRate(
     name: fallback.name,
     description: fallback.description,
     liveCarrier: { ...live, override: undefined },
+    serviceCode: rate.serviceCode ? `${rate.serviceCode}:fallback` : undefined,
   };
   const amount =
     fallback.kind === "fixed"
@@ -786,6 +844,12 @@ export function evaluateCarrierCart(
   scenarios: Scenario[],
   combinedRules: CombinedRule[] = [],
   liveQuotes: ReadonlyMap<string, CarrierQuoteResult> = new Map(),
+  configuration: {
+    shipping?: ShippingConfiguration;
+    appearance?: Appearance;
+    timezone?: string;
+    now?: Date;
+  } = {},
 ): PricingResult {
   let region: Region | undefined;
   const quotes = new Map<
@@ -793,6 +857,7 @@ export function evaluateCarrierCart(
     Pick<FixedRate, "name" | "description" | "currency"> & {
       minDays?: number | null;
       maxDays?: number | null;
+      serviceCode?: string | null;
     }
   >();
   const trace: PricingTrace = {
@@ -801,7 +866,14 @@ export function evaluateCarrierCart(
     rates: [],
     selection: settings.multipleRates,
     rounding: settings.rounding,
+    ...(cart.distanceMeters !== undefined
+      ? { distanceMeters: cart.distanceMeters }
+      : {}),
+    ...(cart.distanceError ? { distanceError: cart.distanceError } : {}),
   };
+  const shipping = configuration.shipping;
+  const fallback = shipping?.fallback;
+  let fallbackBase = 0;
   const outcomes = new Set<ScenarioOutcome>();
   let evaluated = false;
   const decision = decideCheckoutRates(
@@ -809,6 +881,25 @@ export function evaluateCarrierCart(
       ...settings,
       customerFirstName: cart.firstName,
       unitsPerMajor: 10 ** moneyDecimals(cart.currency),
+      get fallbackRate() {
+        if (!fallback) return null;
+        const amount =
+          fallback.kind === "percent"
+            ? Math.round(
+                (cart.subtotal * parseDecimal(fallback.value, 3)) / 100,
+              )
+            : fallback.currency === cart.currency
+              ? parseMoney(fallback.value, cart.currency)
+              : null;
+        if (
+          amount == null ||
+          !Number.isSafeInteger(amount) ||
+          amount > 2_000_000_000
+        )
+          return null;
+        fallbackBase = amount;
+        return { id: "store-fallback", amountInMinorUnits: amount };
+      },
     },
     () => {
       evaluated = true;
@@ -816,6 +907,7 @@ export function evaluateCarrierCart(
       if (!region) return [];
       trace.region = { id: region.id, name: region.name };
       let priority = 0;
+      const flatSignatures = new Set<string>();
       const regionId = region.id;
       const pricedRates = scenarios.flatMap((scenario) => {
         const name = scenario.name ?? "Scenario";
@@ -879,7 +971,25 @@ export function evaluateCarrierCart(
               });
               return [];
             }
-            quotes.set(rate.id, rate);
+            const signature =
+              shipping?.preventDoubling &&
+              !rate.liveCarrier &&
+              (!rate.pricing || rate.pricing.mode === "flat")
+                ? JSON.stringify([
+                    rate.name.trim().toLowerCase(),
+                    rate.description,
+                    price.amount,
+                    rate.minDays ?? null,
+                    rate.maxDays ?? null,
+                    shipping.manualCodes ? (rate.serviceCode ?? null) : null,
+                    [
+                      ...new Set(rate.tags?.map((tag) => tag.toLowerCase())),
+                    ].sort(),
+                  ])
+                : null;
+            const duplicate =
+              signature != null && flatSignatures.has(signature);
+            if (signature != null) flatSignatures.add(signature);
             trace.rates.push({
               id: rate.id,
               name: rate.name,
@@ -889,7 +999,10 @@ export function evaluateCarrierCart(
               steps: price.steps,
               ...(rate.tags?.length ? { tags: rate.tags } : {}),
               finalAmount: null,
+              ...(duplicate ? { deduplicated: true } : {}),
             });
+            if (duplicate) return [];
+            quotes.set(rate.id, rate);
             return [
               {
                 id: rate.id,
@@ -922,6 +1035,7 @@ export function evaluateCarrierCart(
           description: rule.description,
           minDays: rule.minDays,
           maxDays: rule.maxDays,
+          serviceCode: rule.serviceCode,
         });
         for (const source of step.sources) {
           const entry = traceById.get(source.id);
@@ -958,6 +1072,29 @@ export function evaluateCarrierCart(
               : "no-active-scenarios";
     return { rates: [], reason, trace };
   }
+  if (decision.source === "fallback" && fallback) {
+    const { id } = decision.rates[0];
+    quotes.set(id, {
+      name: fallback.name,
+      description: fallback.description,
+      currency: cart.currency,
+    });
+    trace.rates.push({
+      id,
+      name: fallback.name,
+      scenario: "Store fallback",
+      currency: cart.currency,
+      amount: fallbackBase,
+      finalAmount: null,
+      steps: [
+        {
+          label: "Store fallback",
+          amount: fallbackBase,
+          detail: "No scenario returned a rate.",
+        },
+      ],
+    });
+  }
   const finalAmounts = new Map(
     decision.rates.map((rate) => [rate.id, rate.amountInMinorUnits]),
   );
@@ -971,15 +1108,27 @@ export function evaluateCarrierCart(
         amount: rate.finalAmount,
       });
   }
-  const now = Date.now();
-  const deliveryDate = (days: number) =>
-    new Date(now + days * 86_400_000)
-      .toISOString()
-      .slice(0, 19)
-      .replace("T", " ") + " +0000";
+  const now = configuration.now ?? new Date();
+  const rateDiagnostics = new Map(trace.rates.map((rate) => [rate.id, rate]));
   const rates = decision.rates.flatMap((rate) => {
     const quote = quotes.get(rate.id);
     if (!quote) return [];
+    const estimate = deliveryEstimate(
+      quote.minDays,
+      quote.maxDays,
+      configuration.appearance ?? defaultAppearance,
+      configuration.timezone ?? "UTC",
+      now,
+    );
+    const serviceCode =
+      shipping?.manualCodes && quote.serviceCode
+        ? quote.serviceCode
+        : `shipflow-${rate.id}`;
+    const diagnostics = rateDiagnostics.get(rate.id);
+    if (diagnostics) {
+      diagnostics.serviceCode = serviceCode;
+      if (estimate) diagnostics.deliveryEstimate = estimate.text;
+    }
     const amount =
       moneyDecimals(quote.currency) === 0
         ? rate.amountInMinorUnits * 100
@@ -987,20 +1136,27 @@ export function evaluateCarrierCart(
     return [
       {
         service_name: quote.name,
-        service_code: `shipflow-${rate.id}`,
-        description: quote.description,
+        service_code: serviceCode,
+        description: [quote.description, estimate?.text]
+          .filter(Boolean)
+          .join(" · "),
         currency: quote.currency,
         total_price: String(amount),
-        ...(quote.minDays != null
-          ? { min_delivery_date: deliveryDate(quote.minDays) }
-          : {}),
-        ...(quote.maxDays != null
-          ? { max_delivery_date: deliveryDate(quote.maxDays) }
-          : {}),
+        ...(estimate?.min ? { min_delivery_date: estimate.min } : {}),
+        ...(estimate?.max ? { max_delivery_date: estimate.max } : {}),
       },
     ];
   });
-  return { rates, reason: rates.length ? "matched" : "no-match", trace };
+  return {
+    rates,
+    reason:
+      decision.source === "fallback"
+        ? "store-fallback"
+        : rates.length
+          ? "matched"
+          : "no-match",
+    trace,
+  };
 }
 
 function conditionExpectation(condition: RateCondition) {
@@ -1008,6 +1164,7 @@ function conditionExpectation(condition: RateCondition) {
   const units =
     condition.currency ??
     condition.weightUnit ??
+    condition.distanceUnit ??
     condition.dimensionUnit ??
     (kind === "volume" ? "cm³" : kind === "volumetric" ? "kg" : undefined);
   return [
@@ -1132,6 +1289,12 @@ function matchesCondition(
         ),
       );
     }
+    case "cartDistance":
+      return compareNumber(
+        cart.distanceMeters === undefined
+          ? undefined
+          : cart.distanceMeters / distanceUnits[condition.distanceUnit ?? "km"],
+      );
     case "cartVolume":
     case "cartVolumetric": {
       const volume = totalVolume(cart.lines);
@@ -1143,10 +1306,23 @@ function matchesCondition(
             : volume / dimensionalFactor(cart.volumetricDivisor),
       );
     }
-    case "postalCode":
-      return cart.postalCode
-        ? compareText([cart.postalCode], operator, expected, postalMatch)
-        : null;
+    case "postalCode": {
+      if (!cart.postalCode) return null;
+      const uk = cart.destination.country === "GB";
+      const patterns = expected.filter(
+        (pattern) => !uk || cart.ukPostal || !/[_*]/.test(pattern),
+      );
+      if (!patterns.length) return null;
+      return compareText(
+        [cart.postalCode],
+        operator,
+        patterns,
+        (actual, pattern) =>
+          uk && !/[_*:]/.test(pattern)
+            ? actual.replace(/\s/g, "") === pattern.replace(/\s/g, "")
+            : postalMatch(actual, pattern),
+      );
+    }
     case "country":
       return compare([cart.destination.country]);
     case "province":

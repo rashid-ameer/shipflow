@@ -95,6 +95,8 @@ export function cartSnapshot(cart: CarrierCart): CartSnapshot {
 }
 
 export const pricingReasonText: Record<PricingReason, string> = {
+  "store-fallback":
+    "No scenario priced this cart. ShipFlow returned the store fallback.",
   matched: "Shipping rates returned",
   "no-region":
     "No region matched the destination. Check the country and province or state.",

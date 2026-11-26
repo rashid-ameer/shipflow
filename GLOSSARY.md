@@ -67,6 +67,12 @@ A shipping rate whose base price comes from a connected carrier. The carrier's s
 **Carrier fallback**:
 A rate configured on a live carrier rate that applies when the carrier quote fails.
 
+**Store fallback**:
+The checkout rate offered when no shipping scenario returns an option and the store has enabled a fallback.
+
+**Delivery estimate**:
+The earliest and latest delivery days configured on a shipping option, shown as business days or calendar dates.
+
 **Shipping tier**:
 An inclusive range of cart or product values associated with a shipping price. When tiers overlap, the first matching tier wins.
 

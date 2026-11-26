@@ -65,6 +65,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     id,
     draft: saved?.draft ?? emptyCombinedDraft,
     revision: saved?.revision ?? "",
+    manualCodes: Boolean(
+      (store.settings.shippingConfiguration as ShippingConfiguration | null)
+        ?.manualCodes,
+    ),
     connected: Boolean(store.carrierServiceId && store.ccsStatus === "ENABLED"),
   };
 }
@@ -274,6 +278,18 @@ function CombinedEditor({
                 patch({ description: event.currentTarget.value })
               }
             />
+            {initial.manualCodes ? (
+              <s-text-field
+                label="Shipping rate code"
+                value={draft.serviceCode ?? ""}
+                maxLength={48}
+                disabled={locked}
+                details="Leave blank for an automatically generated checkout code."
+                onInput={(event) =>
+                  patch({ serviceCode: event.currentTarget.value })
+                }
+              />
+            ) : null}
             <s-grid
               gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 200px), 1fr))"
               gap="base"
@@ -376,36 +392,38 @@ function CombinedEditor({
                 patch({ requireTwoTags: event.currentTarget.checked })
               }
             />
-            {optionalTags.map(({ field, toggle, label, details, maxLength }) => (
-              <s-stack key={field} gap="small">
-                <s-checkbox
-                  label={toggle}
-                  checked={tagEnabled(field)}
-                  disabled={locked}
-                  onChange={(event) => {
-                    const checked = event.currentTarget.checked;
-                    setTagVisibility((current) => ({
-                      ...current,
-                      [field]: checked,
-                    }));
-                    patch(checked ? {} : { [field]: "" });
-                  }}
-                />
-                {tagEnabled(field) ? (
-                  <s-text-field
-                    label={label}
-                    details={details}
-                    maxLength={maxLength}
-                    required
-                    value={draft[field]}
+            {optionalTags.map(
+              ({ field, toggle, label, details, maxLength }) => (
+                <s-stack key={field} gap="small">
+                  <s-checkbox
+                    label={toggle}
+                    checked={tagEnabled(field)}
                     disabled={locked}
-                    onInput={(event) =>
-                      patch({ [field]: event.currentTarget.value })
-                    }
+                    onChange={(event) => {
+                      const checked = event.currentTarget.checked;
+                      setTagVisibility((current) => ({
+                        ...current,
+                        [field]: checked,
+                      }));
+                      patch(checked ? {} : { [field]: "" });
+                    }}
                   />
-                ) : null}
-              </s-stack>
-            ))}
+                  {tagEnabled(field) ? (
+                    <s-text-field
+                      label={label}
+                      details={details}
+                      maxLength={maxLength}
+                      required
+                      value={draft[field]}
+                      disabled={locked}
+                      onInput={(event) =>
+                        patch({ [field]: event.currentTarget.value })
+                      }
+                    />
+                  ) : null}
+                </s-stack>
+              ),
+            )}
           </s-stack>
         </s-section>
         <s-section heading="Rule settings">
@@ -457,3 +475,4 @@ function CombinedEditor({
     </s-page>
   );
 }
+import type { ShippingConfiguration } from "../models/checkout-settings";

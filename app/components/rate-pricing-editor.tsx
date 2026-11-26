@@ -91,6 +91,8 @@ export function RatePricingEditor({
   currency,
   weightUnit,
   dimensionUnit,
+  distanceUnit = "km",
+  manualCodes = false,
   connection,
   change,
 }: {
@@ -98,6 +100,8 @@ export function RatePricingEditor({
   currency: string;
   weightUnit: string;
   dimensionUnit: string;
+  distanceUnit?: string;
+  manualCodes?: boolean;
   connection: UpsConnection;
   change: (value: RateDraft) => void;
 }) {
@@ -110,11 +114,13 @@ export function RatePricingEditor({
       ? "items"
       : pricing.basis === "weight"
         ? (pricing.weightUnit ?? weightUnit)
-        : pricing.basis === "volume"
-          ? "cm³"
-          : pricing.basis === "volumetric"
-            ? "kg"
-            : currency;
+        : pricing.basis === "distance"
+          ? (pricing.distanceUnit ?? distanceUnit)
+          : pricing.basis === "volume"
+            ? "cm³"
+            : pricing.basis === "volumetric"
+              ? "kg"
+              : currency;
   const amountUnit = pricing.amountType === "percent" ? "%" : currency;
   const tiers = pricing.tiers ?? [];
   const increment = pricing.increment ?? defaultIncrement;
@@ -166,6 +172,18 @@ export function RatePricingEditor({
           change({ ...value, name: event.currentTarget.value })
         }
       />
+      {manualCodes ? (
+        <Field
+          label="Shipping rate code"
+          value={value.serviceCode ?? ""}
+          details={
+            live
+              ? "Optional prefix. ShipFlow appends the carrier service code."
+              : "Leave blank for an automatically generated checkout code."
+          }
+          change={(serviceCode) => change({ ...value, serviceCode })}
+        />
+      ) : null}
       {live ? (
         <LiveCarrierFields
           live={live}
@@ -185,6 +203,31 @@ export function RatePricingEditor({
               change({ ...value, description: event.currentTarget.value })
             }
           />
+          <s-grid
+            gridTemplateColumns="repeat(auto-fit, minmax(155px, 1fr))"
+            gap="small"
+          >
+            <s-number-field
+              label="Earliest delivery (days)"
+              min={0}
+              max={365}
+              step={1}
+              value={String(value.minDays ?? "")}
+              onInput={(event) =>
+                change({ ...value, minDays: event.currentTarget.value })
+              }
+            />
+            <s-number-field
+              label="Latest delivery (days)"
+              min={0}
+              max={365}
+              step={1}
+              value={String(value.maxDays ?? "")}
+              onInput={(event) =>
+                change({ ...value, maxDays: event.currentTarget.value })
+              }
+            />
+          </s-grid>
           <s-select
             label="Pricing method"
             value={pricing.mode}
@@ -234,7 +277,8 @@ export function RatePricingEditor({
                     update({
                       criteria,
                       basis:
-                        criteria === "cart" && pricing.basis === "price"
+                        (criteria === "cart" && pricing.basis === "price") ||
+                        (criteria === "product" && pricing.basis === "distance")
                           ? "total"
                           : pricing.basis,
                     });
@@ -255,7 +299,8 @@ export function RatePricingEditor({
                   {(Object.keys(pricingBases) as RatePricing["basis"][])
                     .filter(
                       (key) =>
-                        key !== "price" || pricing.criteria === "product",
+                        (key !== "price" || pricing.criteria === "product") &&
+                        (key !== "distance" || pricing.criteria === "cart"),
                     )
                     .map((key) => (
                       <s-option key={key} value={key}>

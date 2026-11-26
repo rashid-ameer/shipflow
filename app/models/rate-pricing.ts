@@ -23,11 +23,17 @@ import {
   type PackagePricing,
 } from "./package-pricing";
 import { dimensionalFactor, totalVolume } from "./product-dimensions";
+import {
+  distanceUnit,
+  distanceUnits,
+  type DistanceUnit,
+} from "./checkout-settings";
 
 export const pricingBases = {
   total: "Total",
   quantity: "Quantity",
   weight: "Weight",
+  distance: "Distance",
   price: "Unit price",
   volume: "Volume",
   volumetric: "Volumetric weight",
@@ -62,6 +68,7 @@ export type RatePricing = {
   basis: Basis;
   amountType: "fixed" | "percent";
   weightUnit?: WeightUnit;
+  distanceUnit?: DistanceUnit;
   tiers?: Tier[];
   increment?: {
     base: string;
@@ -139,6 +146,7 @@ export function validateRatePricing(
   currency: string,
   defaultWeightUnit: string,
   defaultDimensionUnit = "cm",
+  defaultDistanceUnit = "km",
 ): RatePricing {
   if (
     !input ||
@@ -146,6 +154,7 @@ export function validateRatePricing(
     !["cart", "product"].includes(input.criteria) ||
     !Object.hasOwn(pricingBases, input.basis) ||
     (input.criteria === "cart" && input.basis === "price") ||
+    (input.criteria === "product" && input.basis === "distance") ||
     !["fixed", "percent"].includes(input.amountType)
   )
     throw new Error("Choose a supported pricing method and basis.");
@@ -168,6 +177,10 @@ export function validateRatePricing(
   }
   if (mode !== "flat" && mode !== "package" && basis === "weight")
     result.weightUnit = asWeightUnit(input.weightUnit ?? defaultWeightUnit);
+  if (mode !== "flat" && mode !== "package" && basis === "distance")
+    result.distanceUnit = distanceUnit(
+      input.distanceUnit ?? defaultDistanceUnit,
+    );
   if (mode === "tiered") {
     if (
       !Array.isArray(input.tiers) ||
@@ -278,7 +291,7 @@ function formatBasis(amount: number, pricing: RatePricing, currency: string) {
   const value = new Intl.NumberFormat("en", {
     maximumFractionDigits: 3,
   }).format(amount);
-  return `${value} ${pricing.basis === "weight" ? (pricing.weightUnit ?? "kg") : pricing.basis === "volume" ? "cm³" : pricing.basis === "volumetric" ? "kg" : "items"}`;
+  return `${value} ${pricing.basis === "weight" ? (pricing.weightUnit ?? "kg") : pricing.basis === "distance" ? (pricing.distanceUnit ?? "km") : pricing.basis === "volume" ? "cm³" : pricing.basis === "volumetric" ? "kg" : "items"}`;
 }
 
 function productGroups(
@@ -321,6 +334,7 @@ function measure(
   lines: Line[],
   subtotal: number,
   divisor?: number,
+  meters?: number,
 ) {
   switch (pricing.basis) {
     case "price":
@@ -329,6 +343,10 @@ function measure(
       return subtotal;
     case "quantity":
       return lines.reduce((sum, line) => sum + line.quantity, 0);
+    case "distance":
+      return meters === undefined
+        ? null
+        : meters / distanceUnits[pricing.distanceUnit ?? "km"];
     case "volume":
     case "volumetric": {
       const volume = totalVolume(lines, pricing.individual);
@@ -426,9 +444,21 @@ export function quoteRate(
         pricing.criteria === "cart"
           ? cart.subtotal
           : lines.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const value = measure(pricing, lines, subtotal, cart.volumetricDivisor);
+      const value = measure(
+        pricing,
+        lines,
+        subtotal,
+        cart.volumetricDivisor,
+        cart.distanceMeters,
+      );
       if (value === null)
-        return { reason: "missing-input", detail: "Weight is unavailable." };
+        return {
+          reason: "missing-input",
+          detail:
+            pricing.basis === "distance"
+              ? (cart.distanceError ?? "Driving distance is unavailable.")
+              : `${pricingBases[pricing.basis]} is unavailable.`,
+        };
       const details = [
         label?.slice(0, 120),
         formatBasis(value, pricing, currency),

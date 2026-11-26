@@ -436,10 +436,10 @@ try {
     where: { scenarioId: scenario.id, scenario: { storeId: first.id } },
     data: { condition: { field: "broken-fixture" } },
   });
-  assert.equal((await call(first.id, 10000)).status, 500);
+  assert.equal((await call(first.id, 10000)).status, 200);
   assert.ok(
     await prisma.carrierRequest.findFirst({
-      where: { storeId: first.id, reason: "evaluation-error", statusCode: 500 },
+      where: { storeId: first.id, reason: "evaluation-error", statusCode: 200 },
     }),
   );
   assert.equal(

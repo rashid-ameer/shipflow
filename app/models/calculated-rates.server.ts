@@ -161,6 +161,9 @@ export async function getScenario(storeId: string, id: string) {
           currency,
           pricing,
           liveCarrier,
+          serviceCode,
+          minDays,
+          maxDays,
           active,
           tags,
           notes,
@@ -178,6 +181,9 @@ export async function getScenario(storeId: string, id: string) {
           liveCarrier: liveCarrier
             ? (liveCarrier as LiveCarrierRate)
             : undefined,
+          serviceCode,
+          minDays,
+          maxDays,
           active,
           tags: tags.join(", "),
           notes,
@@ -201,7 +207,7 @@ export async function saveScenario(
     });
     const settings = await tx.storeSettings.findUnique({
       where: { storeId: store.id },
-      select: { weightUnit: true, dimensionUnit: true },
+      select: { weightUnit: true, dimensionUnit: true, distanceUnit: true },
     });
     const input = validate(() =>
       validateScenario(
@@ -210,6 +216,7 @@ export async function saveScenario(
         settings?.weightUnit ?? "kg",
         regions.map((row) => row.id),
         settings?.dimensionUnit,
+        settings?.distanceUnit,
       ),
     );
     const existing = id
@@ -228,6 +235,12 @@ export async function saveScenario(
         "This scenario changed elsewhere. Reopen it before saving.",
       );
     if (input.active) requireCarrier(store);
+    await assertRateCodesAvailable(
+      tx,
+      store.id,
+      input.rates.map((rate) => rate.serviceCode),
+      { scenarioId: id },
+    );
 
     // Keep the unit of an unchanged saved threshold when Settings defaults change.
     const savedConditions =
@@ -243,7 +256,8 @@ export async function saveScenario(
           entry.scope === condition.scope &&
           entry.scopeValue === condition.scopeValue &&
           entry.provinceCountry === condition.provinceCountry &&
-          entry.individual === condition.individual,
+          entry.individual === condition.individual &&
+          entry.distanceUnit === condition.distanceUnit,
       );
       return unchanged ?? condition;
     });
@@ -422,6 +436,42 @@ export async function lockRatesStore<T>(
       );
     return update(tx, store);
   });
+}
+
+export async function assertRateCodesAvailable(
+  tx: Prisma.TransactionClient,
+  storeId: string,
+  codes: (string | null | undefined)[],
+  excluded: { scenarioId?: string | null; combinedId?: string | null },
+) {
+  const nonempty = codes.filter((code): code is string => Boolean(code));
+  if (!nonempty.length) return;
+  const unique = new Set(nonempty.map((code) => code.toLowerCase()));
+  if (unique.size !== nonempty.length)
+    throw new RateFormError("Use a unique code for each shipping rate.");
+  const serviceCode = { in: [...unique], mode: "insensitive" as const };
+  const [scenarioRate, combinedRate] = await Promise.all([
+    tx.fixedShippingRate.findFirst({
+      where: {
+        storeId,
+        serviceCode,
+        ...(excluded.scenarioId
+          ? { scenarioId: { not: excluded.scenarioId } }
+          : {}),
+      },
+      select: { serviceCode: true },
+    }),
+    tx.combinedRateRule.findFirst({
+      where: {
+        storeId,
+        serviceCode,
+        ...(excluded.combinedId ? { id: { not: excluded.combinedId } } : {}),
+      },
+      select: { serviceCode: true },
+    }),
+  ]);
+  if (scenarioRate || combinedRate)
+    throw new RateFormError("This shipping rate code is already in use.");
 }
 
 function validate<T>(run: () => T) {

@@ -35,6 +35,7 @@ import {
 import { requireRatesStore } from "../models/rates-access.server";
 import { getStorePricingContext } from "../models/carrier-shopify.server";
 import { getUpsConnection } from "../models/live-carrier.server";
+import type { ShippingConfiguration } from "../models/checkout-settings";
 import {
   RatePricingEditor,
   rateSummary,
@@ -72,6 +73,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     currency: context?.currency ?? null,
     weightUnit: store.settings.weightUnit,
     dimensionUnit: store.settings.dimensionUnit,
+    distanceUnit: store.settings.distanceUnit,
+    manualCodes: Boolean(
+      (store.settings.shippingConfiguration as ShippingConfiguration | null)
+        ?.manualCodes,
+    ),
     connected: Boolean(store.carrierServiceId && store.ccsStatus === "ENABLED"),
   };
 }
@@ -228,6 +234,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
           initial.currency,
           initial.weightUnit,
           initial.dimensionUnit,
+          initial.distanceUnit,
         );
         const conditions = [...draft.conditions];
         conditions[entry.index] = values;
@@ -238,6 +245,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
           initial.currency,
           initial.weightUnit,
           initial.dimensionUnit,
+          initial.distanceUnit,
         );
         const exists = draft.rates.some((rate) => rate.id === entry.value.id);
         const next = {
@@ -246,6 +254,9 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
           description: rate.description,
           pricing: rate.pricing,
           liveCarrier: rate.liveCarrier,
+          serviceCode: rate.serviceCode,
+          minDays: rate.minDays,
+          maxDays: rate.maxDays,
         };
         setDraft({
           ...draft,
@@ -551,6 +562,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               currency={initial.currency ?? ""}
               weightUnit={initial.weightUnit}
               dimensionUnit={initial.dimensionUnit}
+              distanceUnit={initial.distanceUnit}
               change={(value) => {
                 setEntryError(undefined);
                 setEntry({ ...entry, value });
@@ -563,6 +575,8 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               currency={initial.currency ?? ""}
               weightUnit={initial.weightUnit}
               dimensionUnit={initial.dimensionUnit}
+              distanceUnit={initial.distanceUnit}
+              manualCodes={initial.manualCodes}
               change={(value) => {
                 setEntryError(undefined);
                 setEntry({ ...entry, value });
@@ -590,12 +604,14 @@ function ConditionEditor({
   currency,
   weightUnit,
   dimensionUnit,
+  distanceUnit,
   change,
 }: {
   value: ConditionDraft;
   currency: string;
   weightUnit: string;
   dimensionUnit: string;
+  distanceUnit: string;
   change: (value: ConditionDraft) => void;
 }) {
   const current = conditionDefinitions[value.field];
@@ -609,11 +625,13 @@ function ConditionEditor({
         ? `Value (${value.weightUnit ?? weightUnit})`
         : current.kind === "dimension"
           ? `Value (${value.dimensionUnit ?? dimensionUnit})`
-          : current.kind === "volumetric"
-            ? "Value (kg)"
-            : current.kind === "volume"
-              ? "Value (cm³)"
-              : "Value";
+          : current.kind === "distance"
+            ? `Value (${value.distanceUnit ?? distanceUnit})`
+            : current.kind === "volumetric"
+              ? "Value (kg)"
+              : current.kind === "volume"
+                ? "Value (cm³)"
+                : "Value";
   return (
     <s-stack gap="base">
       <s-select

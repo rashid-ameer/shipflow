@@ -6,6 +6,7 @@ import {
   useBlocker,
   useFetcher,
   useLoaderData,
+  useRevalidator,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
@@ -43,6 +44,29 @@ import {
 import { CarrierFailure } from "../models/ups-rating.server";
 import { carriers } from "../models/live-carrier";
 import { UpsConnectionPanel } from "../components/carrier-connection";
+import prisma from "../db.server";
+import { getMarketsDashboardData } from "../models/market-readiness.server";
+import { listRegions } from "../models/calculated-rates.server";
+import {
+  defaultAppearance,
+  defaultShipping,
+  validateAppearance,
+  validateShippingConfiguration,
+  type Appearance,
+  type ShippingConfiguration,
+} from "../models/checkout-settings";
+import { connectMaps } from "../models/maps-distance.server";
+import { MarketsDashboard } from "../components/markets-dashboard";
+import { RegionsManager } from "../components/regions-manager";
+import {
+  AppearanceSettings,
+  MapsSettings,
+  ProductSyncSettings,
+  SettingsTabs,
+  ShippingSettings,
+  settingsTabs,
+  type SettingsTab,
+} from "../components/checkout-settings-panels";
 
 const SAVE_BAR_ID = "settings-save-bar";
 
@@ -52,21 +76,58 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (store.onboardingStep !== OnboardingStep.COMPLETE || !store.mode) {
     throw redirect(nextOnboardingPath(store.onboardingStep));
   }
-  const carrierTab =
-    new URL(request.url).searchParams.get("tab") === "carriers" &&
-    store.mode === OperatingMode.CCS_RATES;
+  const requested = new URL(request.url).searchParams.get("tab") ?? "basic";
+  const isCcs = store.mode === OperatingMode.CCS_RATES;
+  const tab: SettingsTab =
+    isCcs && Object.hasOwn(settingsTabs, requested)
+      ? (requested as SettingsTab)
+      : "basic";
+  const [shopLocale, connection, markets, regions, sync] = await Promise.all([
+    isCcs && (tab === "basic" || tab === "shipping")
+      ? getShopLocale(admin.graphql)
+      : null,
+    tab === "carriers" ? getUpsConnection(store.id) : null,
+    tab === "markets"
+      ? getMarketsDashboardData(
+          admin.graphql,
+          session.shop,
+          undefined,
+          store.carrierServiceId,
+        )
+      : null,
+    tab === "regions" ? listRegions(store.id) : null,
+    tab === "sync"
+      ? prisma.catalogSync.findUnique({
+          where: { storeId: store.id },
+          select: { autoSync: true, job: true, error: true, lastSyncAt: true },
+        })
+      : null,
+  ]);
   return {
-    carrierTab,
-    connection: carrierTab ? await getUpsConnection(store.id) : null,
+    tab,
+    connection,
+    markets,
+    regions,
+    shopLocale,
+    sync: {
+      auto: sync?.autoSync ?? true,
+      job: sync?.job,
+      error: sync?.error,
+      syncedAt: sync?.lastSyncAt?.toISOString(),
+    },
+    shipping:
+      (store.settings.shippingConfiguration as ShippingConfiguration | null) ??
+      defaultShipping,
+    appearance:
+      (store.settings.checkoutAppearance as Appearance | null) ??
+      defaultAppearance,
+    discounted: store.settings.discountedCartTotal,
+    mapsConnected: Boolean(store.settings.mapsCredentials),
     mode:
       store.mode === OperatingMode.CCS_RATES
         ? ("ccs-rates" as const)
         : ("delivery-customization" as const),
     values: settingsFormValuesFromStore(store),
-    shopLocale:
-      store.mode === OperatingMode.CCS_RATES && !carrierTab
-        ? await getShopLocale((query) => admin.graphql(query))
-        : null,
   };
 }
 
@@ -78,6 +139,107 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   const formData = await request.formData();
   const intent = formData.get("intent");
+  if (
+    intent === "save-shipping" ||
+    intent === "save-appearance" ||
+    intent === "connect-maps" ||
+    intent === "disconnect-maps"
+  ) {
+    if (store.mode !== OperatingMode.CCS_RATES)
+      throw new Response("Select CCS Rates before changing these settings.", {
+        status: 403,
+      });
+    const where = {
+      storeId: store.id,
+      store: { mode: OperatingMode.CCS_RATES },
+    };
+    let patch;
+    let message: string;
+    try {
+      if (intent === "save-shipping") {
+        const locale =
+          formData.get("fallbackEnabled") === "true"
+            ? await getShopLocale(admin.graphql)
+            : null;
+        patch = {
+          shippingConfiguration: validateShippingConfiguration(
+            formData,
+            locale?.available ? locale.currencyCode : undefined,
+          ),
+          discountedCartTotal: formData.get("discounted") === "true",
+        };
+        message = "Shipping configuration saved.";
+      } else if (intent === "save-appearance") {
+        const appearance = validateAppearance(formData);
+        const locale = await getShopLocale(admin.graphql);
+        patch = {
+          checkoutAppearance: appearance,
+          ...(locale.available
+            ? { checkoutTimezone: locale.ianaTimezone }
+            : {}),
+        };
+        message = "Appearance saved.";
+      } else {
+        const key = formData.get("key");
+        patch = {
+          mapsCredentials:
+            intent === "connect-maps"
+              ? await connectMaps(
+                  store.id,
+                  typeof key === "string" ? key.trim() : "",
+                )
+              : null,
+        };
+        message =
+          intent === "connect-maps"
+            ? "Google Maps connected."
+            : "Google Maps disconnected.";
+      }
+    } catch (error) {
+      return data(
+        {
+          ok: false as const,
+          kind: "checkout-settings" as const,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Check the settings and try again.",
+        },
+        { status: 400 },
+      );
+    }
+    try {
+      const isMaps = intent === "connect-maps" || intent === "disconnect-maps";
+      const updated = await prisma.storeSettings.updateMany({
+        where: {
+          ...where,
+          ...(isMaps
+            ? { mapsCredentials: store.settings.mapsCredentials }
+            : {}),
+        },
+        data: patch,
+      });
+      if (!updated.count)
+        return data(
+          {
+            ok: false as const,
+            kind: "checkout-settings" as const,
+            error: "Settings changed elsewhere. Refresh and try again.",
+          },
+          { status: 409 },
+        );
+      return { ok: true as const, kind: "checkout-settings" as const, message };
+    } catch {
+      return data(
+        {
+          ok: false as const,
+          kind: "checkout-settings" as const,
+          error: "Settings could not be saved. Your changes are still here.",
+        },
+        { status: 500 },
+      );
+    }
+  }
   if (
     [
       "carrier-connect",
@@ -174,9 +336,16 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   try {
+    const locale =
+      parsed.mode === "ccs-rates" ? await getShopLocale(admin.graphql) : null;
     const saved =
       parsed.mode === "ccs-rates"
-        ? await updateBasicSettings(session.shop, parsed.value)
+        ? await updateBasicSettings(session.shop, parsed.value, {
+            preserveCartTotal: true,
+            checkoutTimezone: locale?.available
+              ? locale.ianaTimezone
+              : undefined,
+          })
         : await changeDeliveryRuntime(
             admin.graphql,
             session.shop,
@@ -205,47 +374,83 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Settings() {
   const settings = useLoaderData<typeof loader>();
-  if (settings.carrierTab)
-    return (
-      <s-page heading="Carriers">
-        <s-link slot="breadcrumb-actions" href="/app/settings">
-          Settings
-        </s-link>
-        <s-section heading="UPS">
-          <s-paragraph>
-            Create a UPS application with Rating access and link your UPS
-            shipper account.
-          </s-paragraph>
-          <s-link href="https://developer.ups.com/get-started" target="_blank">
-            UPS setup instructions
-          </s-link>
-          <UpsConnectionPanel connection={settings.connection} />
-        </s-section>
-        <s-section heading="Other carriers">
-          <s-grid
-            gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-            gap="base"
-          >
-            {Object.entries(carriers)
-              .filter(([code]) => code !== "ups")
-              .map(([code, name]) => (
-                <s-box
-                  key={code}
-                  padding="base"
-                  border="base"
-                  borderRadius="base"
-                >
-                  <s-stack gap="small">
-                    <s-text type="strong">{name}</s-text>
-                    <s-badge>Unavailable</s-badge>
-                  </s-stack>
-                </s-box>
-              ))}
-          </s-grid>
-        </s-section>
-      </s-page>
-    );
-  return <SettingsForm key={settings.mode} settings={settings} />;
+  const revalidator = useRevalidator();
+  if (settings.tab === "basic")
+    return <SettingsForm key={settings.mode} settings={settings} />;
+  return (
+    <s-page heading="Settings">
+      <SettingsTabs current={settings.tab} />
+      {settings.tab === "markets" && settings.markets ? (
+        <MarketsDashboard
+          data={settings.markets}
+          refreshing={revalidator.state !== "idle"}
+          onRefresh={() => void revalidator.revalidate()}
+        />
+      ) : null}
+      {settings.tab === "regions" && settings.regions ? (
+        <RegionsManager regions={settings.regions} />
+      ) : null}
+      {settings.tab === "sync" ? (
+        <ProductSyncSettings {...settings.sync} />
+      ) : null}
+      {settings.tab === "shipping" ? (
+        <ShippingSettings
+          initial={settings.shipping}
+          discounted={settings.discounted}
+          currency={
+            settings.shopLocale?.available
+              ? settings.shopLocale.currencyCode
+              : undefined
+          }
+        />
+      ) : null}
+      {settings.tab === "appearance" ? (
+        <AppearanceSettings initial={settings.appearance} />
+      ) : null}
+      {settings.tab === "integrations" ? (
+        <MapsSettings connected={settings.mapsConnected} />
+      ) : null}
+      {settings.tab === "carriers" ? (
+        <>
+          <s-section heading="UPS">
+            <s-paragraph>
+              Create a UPS application with Rating access and link your UPS
+              shipper account.
+            </s-paragraph>
+            <s-link
+              href="https://developer.ups.com/get-started"
+              target="_blank"
+            >
+              UPS setup instructions
+            </s-link>
+            <UpsConnectionPanel connection={settings.connection} />
+          </s-section>
+          <s-section heading="Other carriers">
+            <s-grid
+              gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+              gap="base"
+            >
+              {Object.entries(carriers)
+                .filter(([code]) => code !== "ups")
+                .map(([code, name]) => (
+                  <s-box
+                    key={code}
+                    padding="base"
+                    border="base"
+                    borderRadius="base"
+                  >
+                    <s-stack gap="small">
+                      <s-text type="strong">{name}</s-text>
+                      <s-badge>Unavailable</s-badge>
+                    </s-stack>
+                  </s-box>
+                ))}
+            </s-grid>
+          </s-section>
+        </>
+      ) : null}
+    </s-page>
+  );
 }
 
 function SettingsForm({
@@ -383,11 +588,7 @@ function SettingsForm({
 
   return (
     <s-page heading="Settings">
-      {isCcs ? (
-        <s-button slot="secondary-actions" href="/app/settings?tab=carriers">
-          Carriers
-        </s-button>
-      ) : null}
+      {isCcs ? <SettingsTabs current="basic" /> : null}
       <ui-save-bar id={SAVE_BAR_ID}>
         <button
           type="button"
@@ -638,17 +839,6 @@ function CcsSettings({
             <s-option value="nearest-one">Nearest 1.00</s-option>
             <s-option value="ceil">Round up to 1.00</s-option>
             <s-option value="floor">Round down to 1.00</s-option>
-          </s-select>
-          <s-select
-            label="Cart total for shipping rates"
-            name="cartTotalBasis"
-            value={values.cartTotalBasis ?? "original"}
-            onChange={onChange}
-            onInput={onChange}
-            disabled={!fieldsReady}
-          >
-            <s-option value="original">Before discounts</s-option>
-            <s-option value="discounted">After discounts</s-option>
           </s-select>
         </s-grid>
       </s-stack>

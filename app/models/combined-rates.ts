@@ -1,5 +1,6 @@
 import type { CheckoutRate } from "./checkout-decision";
 import { textList, textValue } from "./checkout-values";
+import { deliveryDays, validateRateCode } from "./checkout-settings";
 
 export const combinedPaths = {
   list: "/app/rates/combined",
@@ -20,6 +21,7 @@ export type CombinedRule = {
   notes: string;
   minDays: number | null;
   maxDays: number | null;
+  serviceCode?: string | null;
   method: Method;
   requirement: "any" | "all";
   tags: string[];
@@ -87,14 +89,6 @@ function readTags(input: unknown) {
   return [...tags.values()];
 }
 
-function deliveryDays(input: unknown) {
-  const value = textValue(input);
-  if (!value) return null;
-  if (!/^\d{1,3}$/.test(value) || Number(value) > 365)
-    throw new Error("Enter delivery estimates from 0 to 365 days.");
-  return Number(value);
-}
-
 export function validateCombinedDraft(
   input: unknown,
 ): Omit<CombinedRule, "id"> {
@@ -134,6 +128,7 @@ export function validateCombinedDraft(
     notes,
     minDays,
     maxDays,
+    serviceCode: validateRateCode(draft.serviceCode),
     method,
     tags,
     active: draft.active,

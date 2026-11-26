@@ -48,13 +48,12 @@ export function decideCheckoutRates(
     };
   }
 
-  if (input.fallbackRate) {
+  const fallback = input.fallbackRate;
+  if (fallback) {
     return {
       kind: "rates",
       source: "fallback",
-      rates: [
-        roundRate(input.fallbackRate, input.rounding, input.unitsPerMajor),
-      ],
+      rates: [roundRate(fallback, input.rounding, input.unitsPerMajor)],
     };
   }
 

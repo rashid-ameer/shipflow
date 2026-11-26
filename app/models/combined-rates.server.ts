@@ -1,6 +1,7 @@
 import type { CombinedRateRule, Prisma } from "@prisma/client";
 import prisma from "../db.server";
 import {
+  assertRateCodesAvailable,
   lockRatesStore,
   RateFormError,
   requireCarrier,
@@ -86,6 +87,9 @@ export async function saveCombinedRule(
   }
   return lockRatesStore(shop, async (tx, store) => {
     if (rule.active) requireCarrier(store, "combined rates");
+    await assertRateCodesAvailable(tx, store.id, [rule.serviceCode], {
+      combinedId: id,
+    });
     if (id) {
       const saved = await tx.combinedRateRule.findFirst({
         where: { id, storeId: store.id },

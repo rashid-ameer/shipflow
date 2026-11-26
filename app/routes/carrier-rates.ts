@@ -68,7 +68,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     console.warn(
       "ShipFlow could not calculate rates for a Carrier Service request.",
     );
-    return reply({ rates: [], reason: "evaluation-error", trace: null }, 500);
+    return reply({ rates: [], reason: "evaluation-error", trace: null });
   }
 }
 

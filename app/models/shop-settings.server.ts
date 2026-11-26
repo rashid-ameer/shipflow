@@ -141,6 +141,7 @@ export async function updateUnits(shopDomain: string, input: UnitInput) {
 export async function updateBasicSettings(
   shopDomain: string,
   input: BasicSettingsInput,
+  options: { preserveCartTotal?: boolean; checkoutTimezone?: string } = {},
 ): Promise<ShopWithSettings> {
   const store = await getOrCreateShop(shopDomain);
   const {
@@ -165,7 +166,10 @@ export async function updateBasicSettings(
           volumetricDivisor,
           multipleRates,
           rounding,
-          discountedCartTotal,
+          ...(options.preserveCartTotal ? {} : { discountedCartTotal }),
+          ...(options.checkoutTimezone
+            ? { checkoutTimezone: options.checkoutTimezone }
+            : {}),
         },
       },
     },

@@ -210,7 +210,10 @@ const priced = evaluateCarrierCart(
 assert.equal(priced.rates.length, 1);
 assert.equal(priced.rates[0].total_price, "1300");
 assert.equal(priced.rates[0].service_code, "shipflow-combined-bundle");
-assert.equal(priced.rates[0].description, "Bundle details");
+assert.match(
+  priced.rates[0].description,
+  /^Bundle details · \d{2}\/\d{2}\/\d{4}/,
+);
 assert.match(
   priced.rates[0].min_delivery_date!,
   /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \+0000$/,

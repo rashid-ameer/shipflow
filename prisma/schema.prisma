@@ -87,6 +87,10 @@ model StoreSettings {
   multipleRates     String   @default("all")
   rounding          String   @default("none")
   discountedCartTotal Boolean @default(false)
+  shippingConfiguration Json?
+  checkoutAppearance Json?
+  checkoutTimezone String @default("UTC")
+  mapsCredentials String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -162,6 +166,9 @@ model FixedShippingRate {
   currency    String
   pricing     Json?
   liveCarrier Json?
+  serviceCode String?
+  minDays     Int?
+  maxDays     Int?
   active      Boolean        @default(true)
   tags        String[]       @default([])
   notes       String         @default("")
@@ -198,6 +205,7 @@ enum CombinationRequirement {
 }
 
 model CombinedRateRule {
+  serviceCode String?
   id             String                 @id @default(uuid())
   storeId        String
   position       Int

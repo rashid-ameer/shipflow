@@ -20,6 +20,8 @@ import { catalogId } from "./catalog-shopify.server";
 import { dimensionalFactor } from "./product-dimensions";
 import { loadCombinedRules } from "./combined-rates.server";
 import { loadLiveQuotes } from "./live-carrier.server";
+import { checkoutDistance } from "./maps-distance.server";
+import type { Appearance, ShippingConfiguration } from "./checkout-settings";
 
 type PricingStore = Pick<
   Store,
@@ -36,7 +38,16 @@ type PricingStore = Pick<
         StoreSettings,
         "multipleRates" | "rounding" | "discountedCartTotal"
       > &
-        Partial<Pick<StoreSettings, "volumetricDivisor">>)
+        Partial<
+          Pick<
+            StoreSettings,
+            | "volumetricDivisor"
+            | "mapsCredentials"
+            | "shippingConfiguration"
+            | "checkoutAppearance"
+            | "checkoutTimezone"
+          >
+        >)
     | null;
 };
 
@@ -57,6 +68,10 @@ export function getPricingStore(id: string) {
           rounding: true,
           discountedCartTotal: true,
           volumetricDivisor: true,
+          mapsCredentials: true,
+          shippingConfiguration: true,
+          checkoutAppearance: true,
+          checkoutTimezone: true,
         },
       },
     },
@@ -180,6 +195,9 @@ export async function evaluateStoreCart(
   );
   const sized = {
     ...cart,
+    ukPostal:
+      (store.settings?.shippingConfiguration as ShippingConfiguration | null)
+        ?.ukPostal ?? false,
     volumetricDivisor: dimensionalFactor(store.settings?.volumetricDivisor),
     lines: variants.length
       ? cart.lines.map((line) => {
@@ -202,11 +220,33 @@ export async function evaluateStoreCart(
   const hydrated = options.getGraphql
     ? await addPricingInputs(sized, regions, active, options.getGraphql)
     : sized;
-  const effective =
+  let effective =
     store.settings?.discountedCartTotal &&
     hydrated.discountedSubtotal !== undefined
       ? { ...hydrated, subtotal: hydrated.discountedSubtotal }
       : hydrated;
+  const needsDistance = eligible.some(
+    ({ conditions, rates }) =>
+      (conditions.some((condition) => condition.field === "cartDistance") ||
+        rates.some(({ pricing }) => pricing?.basis === "distance")) &&
+      conditions.every(
+        (condition) =>
+          condition.field === "cartDistance" ||
+          conditionOutcome(condition, effective) === "matched",
+      ),
+  );
+  if (needsDistance) {
+    const distance = await checkoutDistance(
+      effective,
+      store.id,
+      store.settings?.mapsCredentials,
+    );
+    effective = {
+      ...effective,
+      distanceMeters: distance.meters,
+      distanceError: distance.error,
+    };
+  }
   const result = evaluateCarrierCart(
     effective,
     settings,
@@ -226,6 +266,12 @@ export async function evaluateStoreCart(
       ),
       options.simulation || store.testMode,
     ),
+    {
+      shipping: store.settings?.shippingConfiguration as
+        ShippingConfiguration | undefined,
+      appearance: store.settings?.checkoutAppearance as Appearance | undefined,
+      timezone: store.settings?.checkoutTimezone,
+    },
   );
   if (result.trace && effective.subtotal !== cart.subtotal) {
     result.trace.pricingSubtotal = effective.subtotal;

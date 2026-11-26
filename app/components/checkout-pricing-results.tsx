@@ -96,6 +96,21 @@ export function CheckoutPricingResults({
             <s-paragraph>
               Matched region: {trace.region?.name ?? "None"}
             </s-paragraph>
+            {reason === "store-fallback" ? (
+              <s-paragraph>{summary}</s-paragraph>
+            ) : null}
+            {trace.distanceError ? (
+              <s-banner tone="warning">{trace.distanceError}</s-banner>
+            ) : null}
+            {trace.distanceMeters !== undefined ? (
+              <s-paragraph>
+                Driving distance ·{" "}
+                {new Intl.NumberFormat("en", {
+                  maximumFractionDigits: 3,
+                }).format(trace.distanceMeters / 1000)}{" "}
+                km
+              </s-paragraph>
+            ) : null}
             {trace.pricingSubtotal !== undefined && trace.pricingCurrency ? (
               <s-paragraph>
                 Pricing subtotal after discounts ·{" "}
@@ -234,7 +249,19 @@ export function CheckoutPricingResults({
                   <s-table-body>
                     {trace.rates.map((rate) => (
                       <s-table-row key={rate.id}>
-                        <s-table-cell>{rate.name}</s-table-cell>
+                        <s-table-cell>
+                          <s-stack gap="small">
+                            <s-text>{rate.name}</s-text>
+                            {rate.deliveryEstimate ? (
+                              <s-text>{rate.deliveryEstimate}</s-text>
+                            ) : null}
+                            {rate.serviceCode ? (
+                              <s-text color="subdued">
+                                {rate.serviceCode}
+                              </s-text>
+                            ) : null}
+                          </s-stack>
+                        </s-table-cell>
                         <s-table-cell>{rate.scenario}</s-table-cell>
                         <s-table-cell>
                           {money(rate.amount, rate.currency)}
@@ -242,9 +269,11 @@ export function CheckoutPricingResults({
                         <s-table-cell>
                           {rate.consumedBy
                             ? `Combined into ${rate.consumedBy}`
-                            : rate.finalAmount === null
-                              ? "Not selected"
-                              : money(rate.finalAmount, rate.currency)}
+                            : rate.deduplicated
+                              ? "Duplicate flat rate"
+                              : rate.finalAmount === null
+                                ? "Not selected"
+                                : money(rate.finalAmount, rate.currency)}
                         </s-table-cell>
                       </s-table-row>
                     ))}

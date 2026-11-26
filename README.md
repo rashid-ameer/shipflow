@@ -30,6 +30,22 @@ Choose your development store when prompted. The command reuses the configured l
 
 Use this same command after a restart to keep the Shopify preview URL stable. To return to the Docker app, stop the CLI with Ctrl+C and run `docker compose up -d app`.
 
+If the shared tunnel is unavailable, run a separate temporary connector on ShipFlow's port. An empty connector configuration keeps the temporary hostname independent of the shared ingress rules.
+
+```sh
+shipflow_tunnel_config=$(mktemp)
+printf '{}\n' > "$shipflow_tunnel_config"
+cloudflared tunnel --config "$shipflow_tunnel_config" --protocol http2 --url http://127.0.0.1:13114
+```
+
+In another terminal, replace the example URL with the HTTPS URL printed by Cloudflare. The `default` Docker context selects Docker Engine when ShipFlow's database is stored there.
+
+```sh
+DOCKER_CONTEXT=default APP_PORT=13114 SHOPIFY_APP_URL=https://YOUR-TUNNEL.trycloudflare.com npm run preview
+```
+
+Use the Shopify Admin preview link printed by the CLI.
+
 Docker uses Node 26.13.1 LTS and PostgreSQL 19. Compose stores database files in the `postgres19_data` volume.
 
 Run `docker compose up --build -d --wait` after source changes. Run `docker compose exec app npm run typecheck` to check TypeScript. Use `docker compose down` to stop the services. The named PostgreSQL volume persists sessions across restarts. When the tunnel origin changes, update both the environment and Shopify URLs, then recreate the app container and apply the development app configuration again.
@@ -125,3 +141,26 @@ In CCS Rates mode, open **Settings → Carriers**. Connect a UPS account and pro
 UPS is the first implemented provider. The other listed carriers remain unavailable pending adapter work and contract verification. Shipping prices must be returned in the checkout currency. An empty service selection allows all returned services for that route type.
 
 Run `npm run test:m9` against a migrated local PostgreSQL database to verify the quote and fallback with mocked UPS responses.
+
+### Checkout settings and release rehearsal
+
+**Settings** has eight tabs in CCS Rates mode. In **Shipping configuration**, set the cart total basis, UK postcode wildcards, manual rate codes, and the last-resort store fallback. An existing rate code is used only while manual codes are enabled. The duplicate flat rates setting merges identical options within a ShipFlow response. For one charge across separately quoted fulfillment locations, use Shopify's native flat-rate setup and check the store's location groups.
+
+**Appearance** controls delivery estimates for fixed and combined rates. Estimates count days from the shop's calendar and skip the excluded weekdays. Enable precise dates to send a date range and show it in the selected format. **Integrations → Google Maps** tests and stores a Routes API key using `SHIPFLOW_CARRIER_KEY`. Driving distance is calculated only for matching carts that need it. In Simulator, select a fulfillment origin and supply a destination postal code.
+
+For a release rehearsal, record the app image or Git revision, both Function builds, and the last released Shopify app version. Back up PostgreSQL and apply migrations to a staging copy before starting the updated app. Verify health, background catalog sync, signed webhooks, and the following journeys. Record the store's mode, CCS and market readiness, test identity, input, expected result, observed result, and History request ID where applicable.
+
+| Journey | Local evidence | Live acceptance |
+| --- | --- | --- |
+| J1 · Delivery Customization | Onboarding persistence, rule activation and WebAssembly fixtures for tagged pickup | Fresh install and visible change at checkout |
+| J2 · First CCS rate | Signed callback and Simulator fixtures cover Test Mode, Go Live and an eligible flat rate | CCS-enabled market, Test Mode checkout, then ordinary checkout |
+| J3 · Free shipping | $90 → $8; $120 → $0; $120 less $25 → $8 with discounted totals enabled | Confirm the same prices in checkout |
+| J4 · Combined rates | $5 + $8 → $13; removing a required tag restores the source options | Confirm one combined option at checkout |
+| J5 · Carrier quotes | UPS mock returns $14; simulated outage returns $11.50 and a History error | Connected UPS account with Rating access and a real quote |
+| J6 · Missing rates | UK postcode, unavailable Maps, no match, disabled app, and History isolation | Confirm the affected checkout request is visible in History |
+| J7 · Mode switching | Runtime and persistence fixtures cover failure recovery and reactivation of saved rules | Cancel once, switch to CCS, then switch back and confirm the saved customization |
+| J8 · Dimensions | 4.8 kg volumetric weight per item, $7 carton, and missing-dimensions handling | Sync a real variant and compare against checkout |
+
+The local release suite is `npm run test:m10`. The public development preview returned HTTP 502 during the rehearsal. Live market configuration, the embedded screen walkthrough, and both live checkout journeys remain release gates. UPS is the implemented carrier. Other provider contracts and live Maps quotes remain unverified.
+
+To roll back, restore the prior app server artifact and its environment, and release the previously recorded Shopify app version if the extensions changed. Keep the additive migration in place for the prior app version. Restore the database backup only if needed for data recovery, after accounting for writes made after the backup. Verify health, a signed rate request and History, and the active delivery customization before calling the rollback complete.

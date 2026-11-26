@@ -15,6 +15,7 @@
     "test:m7": "vite-node tests/combined-rates.test.ts && vite-node tests/m7-combination-persistence.test.ts",
     "test:m8": "vite-node tests/m8-catalog-packing.test.ts",
     "test:m9": "vite-node tests/m9-live-carriers.test.ts",
+    "test:m10": "vite-node tests/m10-release.test.ts",
     "preview:check": "node scripts/check-preview.mjs",
     "preview": "node scripts/start-preview.mjs",
     "dev": "react-router dev --host 0.0.0.0"

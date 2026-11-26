@@ -204,6 +204,7 @@ export async function action({ request }: ActionFunctionArgs) {
             province: location.province,
             postalCode: location.postalCode,
             city: location.city,
+            street: location.street,
           }
         : context.country
           ? { country: context.country, province: null }
