@@ -2,6 +2,7 @@ import {
   IndexTableBulkActions,
   IndexTableFilterChips,
   IndexTableFilters,
+  IndexTableRowActions,
   IndexTableSection,
 } from "../components/index-table";
 import { useEffect, useRef, useState } from "react";
@@ -112,10 +113,13 @@ export default function ScenariosPage() {
     }
   }, [fetcher.data, busy, shopify]);
 
-  function submit(intent: "activate" | "deactivate" | "delete") {
+  function submit(
+    intent: "activate" | "deactivate" | "delete",
+    ids: string[] = selection,
+  ) {
     const form = new FormData();
     form.set("intent", intent);
-    selection.forEach((id) => form.append("id", id));
+    ids.forEach((id) => form.append("id", id));
     fetcher.submit(form, { method: "post" });
   }
 
@@ -192,12 +196,16 @@ export default function ScenariosPage() {
               <IndexTableFilters columns="minmax(0, 2fr) minmax(0, 1fr)">
                 <s-search-field
                   label="Search scenarios"
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder="Search scenarios"
                   value={query}
                   maxLength={120}
                   onInput={(event) => setQuery(event.currentTarget.value)}
                 />
                 <s-select
                   label="Status"
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder="Status"
                   value={status}
                   onChange={(event) => {
                     setSelected([]);
@@ -261,6 +269,7 @@ export default function ScenariosPage() {
             <s-table-header listSlot="inline">Status</s-table-header>
             <s-table-header listSlot="labeled">Rates</s-table-header>
             <s-table-header listSlot="labeled">Updated</s-table-header>
+            <s-table-header>Actions</s-table-header>
           </s-table-header-row>
           <s-table-body>
             {rows.map((row) => (
@@ -299,6 +308,41 @@ export default function ScenariosPage() {
                 <s-table-cell>{row._count.rates}</s-table-cell>
                 <s-table-cell>
                   {new Date(row.updatedAt).toISOString().slice(0, 10)}
+                </s-table-cell>
+                <s-table-cell>
+                  <IndexTableRowActions id={row.id} label={row.name}>
+                    <s-button icon="edit" href={ratesPaths.scenario(row.id)}>
+                      Edit scenario
+                    </s-button>
+                    {row.active ? (
+                      <s-button
+                        icon="disabled"
+                        disabled={busy}
+                        onClick={() => submit("deactivate", [row.id])}
+                      >
+                        Set inactive
+                      </s-button>
+                    ) : (
+                      <s-button
+                        icon="enabled"
+                        disabled={busy || !connected}
+                        onClick={() => submit("activate", [row.id])}
+                      >
+                        Set active
+                      </s-button>
+                    )}
+                    <s-button
+                      icon="delete"
+                      tone="critical"
+                      disabled={busy}
+                      onClick={() => {
+                        setSelected([row.id]);
+                        modal.current?.showOverlay();
+                      }}
+                    >
+                      Delete scenario
+                    </s-button>
+                  </IndexTableRowActions>
                 </s-table-cell>
               </s-table-row>
             ))}

@@ -2,6 +2,7 @@ import { BorderedCard } from "../components/bordered-card";
 import {
   IndexTableFilterChips,
   IndexTableFilters,
+  IndexTableRowActions,
   IndexTableSection,
 } from "../components/index-table";
 import { useState } from "react";
@@ -266,6 +267,8 @@ function HistoryList({
         <IndexTableFilters columns="minmax(0, 2fr) auto">
           <s-search-field
             label="Search customer name or History ID"
+            labelAccessibilityVisibility="exclusive"
+            placeholder="Search customer name or History ID"
             value={query}
             maxLength={120}
             disabled={loading}
@@ -376,6 +379,7 @@ function HistoryList({
           <s-table-header listSlot="labeled">Received</s-table-header>
           <s-table-header listSlot="labeled">Destination</s-table-header>
           <s-table-header listSlot="labeled">Outcome</s-table-header>
+          <s-table-header>Actions</s-table-header>
         </s-table-header-row>
         <s-table-body>
           {history.rows.map((row) => (
@@ -404,6 +408,32 @@ function HistoryList({
                       ? `${row.rateCount} ${row.rateCount === 1 ? "rate" : "rates"}`
                       : "No rates"}
                 </s-badge>
+              </s-table-cell>
+              <s-table-cell>
+                <IndexTableRowActions id={row.id} label={`request ${row.id}`}>
+                  <s-button
+                    icon="view"
+                    href={diagnosticsPaths.request(row.id)}
+                  >
+                    View request
+                  </s-button>
+                  <s-button
+                    icon="clipboard"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(row.id);
+                        shopify.toast.show("History ID copied");
+                      } catch {
+                        shopify.toast.show(
+                          "Copy the History ID from the request details.",
+                          { isError: true },
+                        );
+                      }
+                    }}
+                  >
+                    Copy History ID
+                  </s-button>
+                </IndexTableRowActions>
               </s-table-cell>
             </s-table-row>
           ))}

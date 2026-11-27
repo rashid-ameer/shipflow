@@ -85,6 +85,31 @@ export function IndexTableFilterChips({
   );
 }
 
+export function IndexTableRowActions({
+  id,
+  label,
+  children,
+}: {
+  id: string;
+  label: string;
+  children: ReactNode;
+}) {
+  const menuId = `row-actions-${id}`;
+  return (
+    <>
+      <s-button
+        icon="menu-horizontal"
+        variant="tertiary"
+        accessibilityLabel={`Actions for ${label}`}
+        commandFor={menuId}
+      />
+      <s-menu id={menuId} accessibilityLabel={`Actions for ${label}`}>
+        {children}
+      </s-menu>
+    </>
+  );
+}
+
 export function IndexTableBulkActions({
   count,
   total,

@@ -2,6 +2,7 @@ import {
   IndexTableBulkActions,
   IndexTableFilterChips,
   IndexTableFilters,
+  IndexTableRowActions,
   IndexTableSection,
 } from "../components/index-table";
 import { useEffect, useRef, useState } from "react";
@@ -214,12 +215,16 @@ export default function CombinedRatesPage() {
               <IndexTableFilters columns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))">
                 <s-search-field
                   label="Search combined rates"
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder="Search combined rates"
                   value={query}
                   maxLength={120}
                   onInput={(event) => setQuery(event.currentTarget.value)}
                 />
                 <s-select
                   label="Status"
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder="Status"
                   value={status}
                   onChange={(event) => {
                     setChecked([]);
@@ -232,6 +237,8 @@ export default function CombinedRatesPage() {
                 </s-select>
                 <s-select
                   label="Sort by"
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder="Sort by"
                   value={sort}
                   onChange={(event) => {
                     setChecked([]);
@@ -306,6 +313,7 @@ export default function CombinedRatesPage() {
             <s-table-header listSlot="labeled">Tags and criteria</s-table-header>
             <s-table-header listSlot="labeled">Status</s-table-header>
             {manualOrder ? <s-table-header>Order</s-table-header> : null}
+            <s-table-header>Actions</s-table-header>
           </s-table-header-row>
           <s-table-body>
             {rows.map((row, index) => (
@@ -370,6 +378,45 @@ export default function CombinedRatesPage() {
                     </s-stack>
                   </s-table-cell>
                 ) : null}
+                <s-table-cell>
+                  <IndexTableRowActions id={row.id} label={row.name}>
+                    <s-button
+                      icon="edit"
+                      href={combinedPaths.editor(row.id)}
+                    >
+                      Edit combined rate
+                    </s-button>
+                    {row.active ? (
+                      <s-button
+                        icon="disabled"
+                        disabled={busy}
+                        onClick={() => submit("deactivate", [row.id])}
+                      >
+                        Set inactive
+                      </s-button>
+                    ) : (
+                      <s-button
+                        icon="enabled"
+                        disabled={busy || !connected}
+                        onClick={() => submit("activate", [row.id])}
+                      >
+                        Set active
+                      </s-button>
+                    )}
+                    <s-button
+                      icon="delete"
+                      tone="critical"
+                      disabled={busy}
+                      onClick={() => {
+                        setDeleteError(undefined);
+                        setConfirmation([row.id]);
+                        deleteModal.current?.showOverlay();
+                      }}
+                    >
+                      Delete combined rate
+                    </s-button>
+                  </IndexTableRowActions>
+                </s-table-cell>
               </s-table-row>
             ))}
             {total === 0 ? (

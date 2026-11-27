@@ -2,9 +2,11 @@ import { BorderedCard } from "./bordered-card";
 import {
   IndexTableFilterChips,
   IndexTableFilters,
+  IndexTableRowActions,
   IndexTableSection,
 } from "./index-table";
 import { useState } from "react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 
 import type { MarketsDashboardData } from "../models/market-readiness";
 
@@ -23,6 +25,7 @@ export function MarketsDashboard({
   refreshing: boolean;
   onRefresh: () => void;
 }) {
+  const shopify = useAppBridge();
   const [filter, setFilter] = useState<MarketFilter>("all");
   const markets = data.status === "available" ? data.markets : [];
   const readyCount = data.status === "available" ? data.readyCount : 0;
@@ -186,8 +189,8 @@ export function MarketsDashboard({
               <s-table-header-row>
                 <s-table-header listSlot="primary">Market</s-table-header>
                 <s-table-header listSlot="secondary">Status</s-table-header>
-                <s-table-header listSlot="inline">Action</s-table-header>
-              </s-table-header-row>
+            <s-table-header>Actions</s-table-header>
+          </s-table-header-row>
               <s-table-body>
                 {visibleMarkets.map((market) => (
                   <s-table-row key={market.id}>
@@ -200,15 +203,31 @@ export function MarketsDashboard({
                       </s-badge>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-button
-                        href={market.manageUrl}
-                        target="_blank"
-                        icon="external"
-                        variant="secondary"
-                        accessibilityLabel={`Manage ${market.name} in Shopify`}
-                      >
-                        Manage
-                      </s-button>
+                      <IndexTableRowActions id={market.id} label={market.name}>
+                        <s-button
+                          icon="external"
+                          href={market.manageUrl}
+                          target="_blank"
+                        >
+                          Manage in Shopify
+                        </s-button>
+                        <s-button
+                          icon="clipboard"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(market.id);
+                              shopify.toast.show("Market ID copied");
+                            } catch {
+                              shopify.toast.show(
+                                "Copy the market ID from Shopify Markets.",
+                                { isError: true },
+                              );
+                            }
+                          }}
+                        >
+                          Copy market ID
+                        </s-button>
+                      </IndexTableRowActions>
                     </s-table-cell>
                   </s-table-row>
                 ))}

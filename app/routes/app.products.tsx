@@ -2,6 +2,7 @@ import { BorderedCard } from "../components/bordered-card";
 import {
   IndexTableFilterChips,
   IndexTableFilters,
+  IndexTableRowActions,
   IndexTableSection,
 } from "../components/index-table";
 import { useEffect, useRef, useState } from "react";
@@ -376,7 +377,8 @@ export default function Products() {
           <IndexTableFilters columns="minmax(0, 1fr)">
             <s-search-field
               label="Search by product name or tag"
-              placeholder="Enter at least 3 characters"
+              labelAccessibilityVisibility="exclusive"
+              placeholder="Search by product name or tag"
               value={search}
               onInput={(event) => setQuery(event.currentTarget.value)}
             />
@@ -404,7 +406,7 @@ export default function Products() {
             <s-table-header listSlot="primary">Name</s-table-header>
             <s-table-header>Variants</s-table-header>
             <s-table-header>Tags</s-table-header>
-            <s-table-header>Action</s-table-header>
+            <s-table-header>Actions</s-table-header>
           </s-table-header-row>
           <s-table-body>
             {products.map((product) => (
@@ -412,19 +414,40 @@ export default function Products() {
                 key={product.id}
                 clickDelegate={`product-${product.id}`}
               >
-                <s-table-cell>{product.title}</s-table-cell>
+                <s-table-cell>
+                  <s-link id={`product-${product.id}`} href={`${productsPath}/${product.id}`}>
+                    {product.title}
+                  </s-link>
+                </s-table-cell>
                 <s-table-cell>
                   {product._count.variants > 1 ? product._count.variants : ""}
                 </s-table-cell>
                 <s-table-cell>{product.tags.join(", ")}</s-table-cell>
                 <s-table-cell>
-                  <s-link
-                    id={`product-${product.id}`}
-                    href={`${productsPath}/${product.id}`}
-                    accessibilityLabel={`Edit dimensions for ${product.title}`}
-                  >
-                    Edit
-                  </s-link>
+                  <IndexTableRowActions id={product.id} label={product.title}>
+                    <s-button
+                      icon="edit"
+                      href={`${productsPath}/${product.id}`}
+                    >
+                      Edit dimensions
+                    </s-button>
+                    <s-button
+                      icon="clipboard"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(product.id);
+                          shopify.toast.show("Product ID copied");
+                        } catch {
+                          shopify.toast.show(
+                            "Copy the product ID from the product details.",
+                            { isError: true },
+                          );
+                        }
+                      }}
+                    >
+                      Copy product ID
+                    </s-button>
+                  </IndexTableRowActions>
                 </s-table-cell>
               </s-table-row>
             ))}

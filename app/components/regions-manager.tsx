@@ -1,4 +1,4 @@
-import { IndexTableSection } from "./index-table";
+import { IndexTableRowActions, IndexTableSection } from "./index-table";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -88,39 +88,40 @@ export function RegionsManager({ regions }: { regions: Regions }) {
                   : region.coverage.map(coverageLabel).join(" · ")}
               </s-table-cell>
               <s-table-cell>{region.rateCount}</s-table-cell>
-              <s-table-cell>
-                {region.kind !== "REST" ? (
-                  <s-stack direction="inline" gap="small">
-                    <s-button
-                      variant="tertiary"
-                      disabled={busy || editing || deleting}
-                      onClick={() => {
-                        setError(undefined);
-                        edit({
-                          id: region.id,
-                          name: region.name,
-                          coverage: region.coverage.map((row) => ({
-                            country: row.country,
-                            provinces: row.provinces.join(", "),
-                          })),
-                        });
-                      }}
-                    >
-                      Edit
-                    </s-button>
-                    <s-button
-                      variant="tertiary"
-                      disabled={!canDelete || busy || editing || deleting}
-                      onClick={() => {
-                        setError(undefined);
-                        confirm(region);
-                      }}
-                    >
-                      Delete
-                    </s-button>
-                  </s-stack>
-                ) : null}
-              </s-table-cell>
+                <s-table-cell>
+                  {region.kind !== "REST" ? (
+                    <IndexTableRowActions id={region.id} label={region.name}>
+                      <s-button
+                        icon="edit"
+                        disabled={busy || editing || deleting}
+                        onClick={() => {
+                          setError(undefined);
+                          edit({
+                            id: region.id,
+                            name: region.name,
+                            coverage: region.coverage.map((row) => ({
+                              country: row.country,
+                              provinces: row.provinces.join(", "),
+                            })),
+                          });
+                        }}
+                      >
+                        Edit region
+                      </s-button>
+                      <s-button
+                        icon="delete"
+                        tone="critical"
+                        disabled={!canDelete || busy || editing || deleting}
+                        onClick={() => {
+                          setError(undefined);
+                          confirm(region);
+                        }}
+                      >
+                        Delete region
+                      </s-button>
+                    </IndexTableRowActions>
+                  ) : null}
+                </s-table-cell>
             </s-table-row>
           ))}
           {regions.length === 0 ? (

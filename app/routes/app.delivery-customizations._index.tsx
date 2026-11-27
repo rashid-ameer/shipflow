@@ -1,4 +1,8 @@
-import { IndexTableSection } from "../components/index-table";
+import {
+  IndexTableRowActions,
+  IndexTableSection,
+} from "../components/index-table";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   redirect,
   useLoaderData,
@@ -47,6 +51,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function DeliveryCustomizations() {
   const { rows, used, issue, appEnabled } = useLoaderData<typeof loader>();
+  const shopify = useAppBridge();
   const revalidator = useRevalidator();
   return (
     <s-page heading="Delivery customizations">
@@ -92,6 +97,7 @@ export default function DeliveryCustomizations() {
             <s-table-header listSlot="primary">Customization</s-table-header>
             <s-table-header listSlot="inline">Saved status</s-table-header>
             <s-table-header listSlot="labeled">At checkout</s-table-header>
+            <s-table-header>Actions</s-table-header>
           </s-table-header-row>
           <s-table-body>
             {rows.map((row) => {
@@ -109,6 +115,32 @@ export default function DeliveryCustomizations() {
                   <s-table-cell>{row.active ? "Active" : "Inactive"}</s-table-cell>
                   <s-table-cell>
                     <s-badge tone={status.tone}>{status.label}</s-badge>
+                  </s-table-cell>
+                  <s-table-cell>
+                    <IndexTableRowActions id={row.id} label={row.name}>
+                      <s-button
+                        icon="edit"
+                        href={deliveryPaths.edit(row.id)}
+                      >
+                        Edit customization
+                      </s-button>
+                      <s-button
+                        icon="clipboard"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(row.id);
+                            shopify.toast.show("Customization ID copied");
+                          } catch {
+                            shopify.toast.show(
+                              "Copy the customization ID from the editor.",
+                              { isError: true },
+                            );
+                          }
+                        }}
+                      >
+                        Copy customization ID
+                      </s-button>
+                    </IndexTableRowActions>
                   </s-table-cell>
                 </s-table-row>
               );
