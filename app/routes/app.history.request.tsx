@@ -53,31 +53,23 @@ export default function CheckoutHistoryRequestPage() {
         History
       </s-link>
       {entry.found ? (
-        <>
-          <s-button
-            slot="secondary-actions"
-            href={diagnosticsPaths.simulator}
-          >
-            Open simulator
-          </s-button>
-          <s-button
-            slot="primary-action"
-            variant="primary"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(entry.id);
-                shopify.toast.show("History ID copied");
-              } catch {
-                shopify.toast.show(
-                  "Copy the History ID from the request details.",
-                  { isError: true },
-                );
-              }
-            }}
-          >
-            Copy History ID
-          </s-button>
-        </>
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(entry.id);
+              shopify.toast.show("History ID copied");
+            } catch {
+              shopify.toast.show(
+                "Copy the History ID from the request details.",
+                { isError: true },
+              );
+            }
+          }}
+        >
+          Copy History ID
+        </s-button>
       ) : null}
       {!entry.found ? (
         <s-banner tone="info" heading="Request unavailable">

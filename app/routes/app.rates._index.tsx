@@ -73,9 +73,6 @@ export default function RatesHub() {
       <s-button slot="secondary-actions" href={diagnosticsPaths.simulator}>
         Open simulator
       </s-button>
-      <s-button slot="secondary-actions" href={diagnosticsPaths.history}>
-        View history
-      </s-button>
       <s-stack gap="base">
         {connect.data && !connect.data.ok ? (
           <s-banner
