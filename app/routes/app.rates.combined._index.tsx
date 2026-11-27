@@ -334,9 +334,13 @@ export default function CombinedRatesPage() {
                   />
                 </s-table-cell>
                 <s-table-cell>
-                  <s-link id={`combined-${row.id}`} href={combinedPaths.editor(row.id)}>
+                  <s-button
+                    id={`combined-${row.id}`}
+                    variant="tertiary"
+                    href={combinedPaths.editor(row.id)}
+                  >
                     {row.name}
-                  </s-link>
+                  </s-button>
                 </s-table-cell>
                 <s-table-cell>{combinationMethods[row.method]}</s-table-cell>
                 <s-table-cell>

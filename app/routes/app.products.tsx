@@ -415,9 +415,13 @@ export default function Products() {
                 clickDelegate={`product-${product.id}`}
               >
                 <s-table-cell>
-                  <s-link id={`product-${product.id}`} href={`${productsPath}/${product.id}`}>
+                  <s-button
+                    id={`product-${product.id}`}
+                    variant="tertiary"
+                    href={`${productsPath}/${product.id}`}
+                  >
                     {product.title}
-                  </s-link>
+                  </s-button>
                 </s-table-cell>
                 <s-table-cell>
                   {product._count.variants > 1 ? product._count.variants : ""}

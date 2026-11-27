@@ -502,7 +502,9 @@ export function ProductSyncSettings({
           >
             Sync products
           </s-button>
-                    <s-link href="/app/products">Open Products</s-link>
+                    <s-button variant="secondary" href="/app/products">
+                      Open Products
+                    </s-button>
         </s-stack>
       </s-stack>
     </SettingsPanel>

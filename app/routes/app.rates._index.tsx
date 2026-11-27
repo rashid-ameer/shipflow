@@ -146,14 +146,18 @@ export default function RatesHub() {
               {state.scenarios} saved. Use conditions and regions to decide when
               a shipping rate appears.
             </s-paragraph>
-            <s-link href={ratesPaths.scenarios}>View scenarios</s-link>
+            <s-button variant="secondary" href={ratesPaths.scenarios}>
+              View scenarios
+            </s-button>
           </BorderedCard>
           <BorderedCard heading="Combined shipping rates">
             <s-paragraph>
               Use shipping tags to merge matching scenario rates into one
               checkout option.
             </s-paragraph>
-            <s-link href={combinedPaths.list}>View combined rates</s-link>
+            <s-button variant="secondary" href={combinedPaths.list}>
+              View combined rates
+            </s-button>
           </BorderedCard>
         </s-grid>
       </s-stack>

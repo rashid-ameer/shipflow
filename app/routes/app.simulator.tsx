@@ -797,7 +797,9 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
                     }}
                   />
                 ))}
-                <s-link href={combinedPaths.list}>Manage combined rates</s-link>
+                <s-button variant="secondary" href={combinedPaths.list}>
+                  Manage combined rates
+                </s-button>
               </>
             ) : null}
           </s-stack>

@@ -105,12 +105,13 @@ export default function DeliveryCustomizations() {
               return (
                 <s-table-row key={row.id} clickDelegate={`customization-${row.id}`}>
                   <s-table-cell>
-                    <s-link
+                    <s-button
                       id={`customization-${row.id}`}
+                      variant="tertiary"
                       href={deliveryPaths.edit(row.id)}
                     >
                       {row.name}
-                    </s-link>
+                    </s-button>
                   </s-table-cell>
                   <s-table-cell>{row.active ? "Active" : "Inactive"}</s-table-cell>
                   <s-table-cell>

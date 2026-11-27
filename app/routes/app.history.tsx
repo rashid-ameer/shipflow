@@ -385,9 +385,13 @@ function HistoryList({
           {history.rows.map((row) => (
             <s-table-row key={row.id} clickDelegate={`history-${row.id}`}>
               <s-table-cell>
-                <s-link id={`history-${row.id}`} href={diagnosticsPaths.request(row.id)}>
+                <s-button
+                  id={`history-${row.id}`}
+                  variant="tertiary"
+                  href={diagnosticsPaths.request(row.id)}
+                >
                   {row.id}
-                </s-link>
+                </s-button>
               </s-table-cell>
               <s-table-cell>{row.customer}</s-table-cell>
               <s-table-cell>{historyTime(row.receivedAt)}</s-table-cell>

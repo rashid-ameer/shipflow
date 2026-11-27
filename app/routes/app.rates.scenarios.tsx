@@ -295,12 +295,13 @@ export default function ScenariosPage() {
                   />
                 </s-table-cell>
                 <s-table-cell>
-                  <s-link
+                  <s-button
                     id={`scenario-${row.id}`}
+                    variant="tertiary"
                     href={ratesPaths.scenario(row.id)}
                   >
                     {row.name}
-                  </s-link>
+                  </s-button>
                 </s-table-cell>
                 <s-table-cell>
                   <s-badge tone={row.active ? "success" : "neutral"}>
