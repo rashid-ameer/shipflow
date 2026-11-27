@@ -20,10 +20,12 @@ export function MarketsDashboard({
   data,
   refreshing,
   onRefresh,
+  showTable = false,
 }: {
   data: MarketsDashboardData;
   refreshing: boolean;
   onRefresh: () => void;
+  showTable?: boolean;
 }) {
   const shopify = useAppBridge();
   const [filter, setFilter] = useState<MarketFilter>("all");
@@ -36,6 +38,188 @@ export function MarketsDashboard({
     if (filter === "needs-setup") return !ready;
     return true;
   });
+
+  const marketsDescription =
+    data.status === "available"
+      ? allReady
+        ? `ShipFlow calculated rates can be used in every active market. ShipFlow is enabled in ${readyCount} of ${data.totalCount} ${data.totalCount === 1 ? "market" : "markets"}.`
+        : `ShipFlow is enabled in ${readyCount} of ${data.totalCount} ${data.totalCount === 1 ? "market" : "markets"}. Markets are imported automatically from Shopify. Needs setup means ShipFlow is not active as a carrier-calculated rate provider there.`
+      : data.reason === "permission"
+        ? "ShipFlow doesn't have permission to read Shopify Markets. Approve Markets access, then refresh."
+        : "Shopify didn't return market status. Your market settings were not changed. Refresh or review them in Shopify.";
+
+  const renderInfoBanner = () => (
+    <s-banner tone="info" heading="How market status works">
+      <s-paragraph>
+        Markets appear here automatically; you do not add them in ShipFlow. A
+        market becomes Ready only after ShipFlow's Carrier Service is connected
+        and enabled in that market's Shipping section. If ShipFlow is not
+        offered as a provider, leave the market unchanged and complete Carrier
+        Service setup in ShipFlow first. Then return and choose Refresh.
+      </s-paragraph>
+      <s-button
+        slot="secondary-actions"
+        href={data.manageUrl}
+        target="_blank"
+        icon="external"
+        variant="secondary"
+      >
+        Open Shopify Markets
+      </s-button>
+    </s-banner>
+  );
+
+  const marketsWarningBanner = (
+    <s-banner tone="warning" heading="Market status could not be checked">
+      <s-paragraph>
+        {data.status === "unavailable" && data.reason === "permission"
+          ? "Approve Shopify Markets access when reopening ShipFlow, then refresh."
+          : "Shopify didn't return market status. This did not change your market settings. Refresh before editing anything in Shopify."}
+      </s-paragraph>
+      <s-button
+        slot="secondary-actions"
+        variant="secondary"
+        loading={refreshing}
+        disabled={refreshing}
+        onClick={onRefresh}
+      >
+        Refresh
+      </s-button>
+      <s-button
+        slot="secondary-actions"
+        href={data.manageUrl}
+        target="_blank"
+        icon="external"
+        variant="secondary"
+      >
+        Review Shopify Markets
+      </s-button>
+    </s-banner>
+  );
+
+  const marketsTable = (
+    <IndexTableSection label="Markets">
+      <IndexTableFilters columns="auto">
+        <s-stack direction="inline" gap="small-200">
+          <s-button
+            {...pressedState(filter === "all")}
+            variant={filter === "all" ? "primary" : "secondary"}
+            onClick={() => setFilter("all")}
+          >
+            All ({markets.length})
+          </s-button>
+          <s-button
+            {...pressedState(filter === "ready")}
+            variant={filter === "ready" ? "primary" : "secondary"}
+            onClick={() => setFilter("ready")}
+          >
+            Ready ({readyCount})
+          </s-button>
+          <s-button
+            {...pressedState(filter === "needs-setup")}
+            variant={filter === "needs-setup" ? "primary" : "secondary"}
+            onClick={() => setFilter("needs-setup")}
+          >
+            Needs setup ({needsSetupCount})
+          </s-button>
+        </s-stack>
+      </IndexTableFilters>
+      <IndexTableFilterChips
+        filters={
+          filter === "all"
+            ? []
+            : [
+                {
+                  label:
+                    filter === "ready"
+                      ? "Status: Ready"
+                      : "Status: Needs setup",
+                  onRemove: () => setFilter("all"),
+                },
+              ]
+        }
+        onClearAll={() => setFilter("all")}
+      />
+      <s-table-header-row>
+        <s-table-header listSlot="primary">Market</s-table-header>
+        <s-table-header listSlot="secondary">Status</s-table-header>
+        <s-table-header>Actions</s-table-header>
+      </s-table-header-row>
+      <s-table-body>
+        {visibleMarkets.map((market) => (
+          <s-table-row key={market.id}>
+            <s-table-cell>
+              <s-text type="strong">{market.name}</s-text>
+            </s-table-cell>
+            <s-table-cell>
+              <s-badge tone={market.ready ? "success" : "warning"}>
+                {market.ready ? "Ready" : "Needs setup"}
+              </s-badge>
+            </s-table-cell>
+            <s-table-cell>
+              <IndexTableRowActions id={market.id} label={market.name}>
+                <s-button
+                  icon="external"
+                  href={market.manageUrl}
+                  target="_blank"
+                >
+                  Manage in Shopify
+                </s-button>
+                <s-button
+                  icon="clipboard"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(market.id);
+                      shopify.toast.show("Market ID copied");
+                    } catch {
+                      shopify.toast.show(
+                        "Copy the market ID from Shopify Markets.",
+                        { isError: true },
+                      );
+                    }
+                  }}
+                >
+                  Copy market ID
+                </s-button>
+              </IndexTableRowActions>
+            </s-table-cell>
+          </s-table-row>
+        ))}
+        <s-empty-state
+          heading={
+            filter === "ready"
+              ? "No ready markets"
+              : filter === "needs-setup"
+                ? "All markets are ready"
+                : "No active markets"
+          }
+        >
+          <s-text slot="subheading">
+            {filter === "ready"
+              ? "No market currently has ShipFlow enabled as a carrier-calculated rate provider."
+              : filter === "needs-setup"
+                ? "ShipFlow is enabled in every active market."
+                : "Create or activate a Shopify Market. It will appear here automatically after you refresh."}
+          </s-text>
+        </s-empty-state>
+      </s-table-body>
+    </IndexTableSection>
+  );
+
+  const marketsDetail =
+    data.status === "available" ? (
+      <s-stack direction="block" gap="base">
+        <s-paragraph>
+          {readyCount} of {data.totalCount}{" "}
+          {data.totalCount === 1 ? "market is" : "markets are"} ready to use
+          ShipFlow calculated rates.
+        </s-paragraph>
+        {!allReady ? renderInfoBanner() : null}
+        {marketsTable}
+      </s-stack>
+    ) : (
+      marketsWarningBanner
+    );
 
   if (data.status === "available" && !data.marketDrivenShipping) {
     const shippingUrl = new URL("/admin/settings/shipping", data.manageUrl)
@@ -66,6 +250,32 @@ export function MarketsDashboard({
           </s-stack>
         </s-stack>
       </BorderedCard>
+    );
+  }
+
+  if (showTable) {
+    return (
+      <s-stack direction="block" gap="base">
+        <s-stack
+          direction="inline"
+          gap="base"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <s-heading>Markets</s-heading>
+          <s-button
+            variant="secondary"
+            loading={refreshing}
+            disabled={refreshing}
+            onClick={onRefresh}
+          >
+            Refresh
+          </s-button>
+        </s-stack>
+        <s-paragraph>{marketsDescription}</s-paragraph>
+        {renderInfoBanner()}
+        {data.status === "available" ? marketsTable : marketsWarningBanner}
+      </s-stack>
     );
   }
 
@@ -116,168 +326,7 @@ export function MarketsDashboard({
       </BorderedCard>
 
       <s-modal id="markets-modal" heading="Markets" size="large">
-        {data.status === "available" ? (
-          <s-stack direction="block" gap="base">
-            <s-paragraph>
-              {readyCount} of {data.totalCount}{" "}
-              {data.totalCount === 1 ? "market is" : "markets are"} ready to use
-              ShipFlow calculated rates.
-            </s-paragraph>
-
-            {!allReady ? (
-              <s-banner tone="info" heading="How market status works">
-                <s-paragraph>
-                  Markets appear here automatically; you do not add them in
-                  ShipFlow. A market becomes Ready only after ShipFlow's Carrier
-                  Service is connected and enabled in that market's Shipping
-                  section. If ShipFlow is not offered as a provider, leave the
-                  market unchanged and complete Carrier Service setup in
-                  ShipFlow first. Then return and choose Refresh.
-                </s-paragraph>
-                <s-button
-                  slot="secondary-actions"
-                  href={data.manageUrl}
-                  target="_blank"
-                  icon="external"
-                  variant="secondary"
-                >
-                  Open Shopify Markets
-                </s-button>
-              </s-banner>
-            ) : null}
-
-            <IndexTableSection label="Markets">
-              <IndexTableFilters columns="auto">
-                <s-stack direction="inline" gap="small-200">
-                  <s-button
-                    {...pressedState(filter === "all")}
-                    variant={filter === "all" ? "primary" : "secondary"}
-                    onClick={() => setFilter("all")}
-                  >
-                    All ({markets.length})
-                  </s-button>
-                  <s-button
-                    {...pressedState(filter === "ready")}
-                    variant={filter === "ready" ? "primary" : "secondary"}
-                    onClick={() => setFilter("ready")}
-                  >
-                    Ready ({readyCount})
-                  </s-button>
-                  <s-button
-                    {...pressedState(filter === "needs-setup")}
-                    variant={filter === "needs-setup" ? "primary" : "secondary"}
-                    onClick={() => setFilter("needs-setup")}
-                  >
-                    Needs setup ({needsSetupCount})
-                  </s-button>
-                </s-stack>
-              </IndexTableFilters>
-              <IndexTableFilterChips
-                filters={
-                  filter === "all"
-                    ? []
-                    : [
-                        {
-                          label:
-                            filter === "ready" ? "Status: Ready" : "Status: Needs setup",
-                          onRemove: () => setFilter("all"),
-                        },
-                      ]
-                }
-                onClearAll={() => setFilter("all")}
-              />
-              <s-table-header-row>
-                <s-table-header listSlot="primary">Market</s-table-header>
-                <s-table-header listSlot="secondary">Status</s-table-header>
-            <s-table-header>Actions</s-table-header>
-          </s-table-header-row>
-              <s-table-body>
-                {visibleMarkets.map((market) => (
-                  <s-table-row key={market.id}>
-                    <s-table-cell>
-                      <s-text type="strong">{market.name}</s-text>
-                    </s-table-cell>
-                    <s-table-cell>
-                      <s-badge tone={market.ready ? "success" : "warning"}>
-                        {market.ready ? "Ready" : "Needs setup"}
-                      </s-badge>
-                    </s-table-cell>
-                    <s-table-cell>
-                      <IndexTableRowActions id={market.id} label={market.name}>
-                        <s-button
-                          icon="external"
-                          href={market.manageUrl}
-                          target="_blank"
-                        >
-                          Manage in Shopify
-                        </s-button>
-                        <s-button
-                          icon="clipboard"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(market.id);
-                              shopify.toast.show("Market ID copied");
-                            } catch {
-                              shopify.toast.show(
-                                "Copy the market ID from Shopify Markets.",
-                                { isError: true },
-                              );
-                            }
-                          }}
-                        >
-                          Copy market ID
-                        </s-button>
-                      </IndexTableRowActions>
-                    </s-table-cell>
-                  </s-table-row>
-                ))}
-                <s-empty-state
-                  heading={
-                    filter === "ready"
-                      ? "No ready markets"
-                      : filter === "needs-setup"
-                        ? "All markets are ready"
-                        : "No active markets"
-                  }
-                >
-                  <s-text slot="subheading">
-                    {filter === "ready"
-                      ? "No market currently has ShipFlow enabled as a carrier-calculated rate provider."
-                      : filter === "needs-setup"
-                        ? "ShipFlow is enabled in every active market."
-                        : "Create or activate a Shopify Market. It will appear here automatically after you refresh."}
-                  </s-text>
-                </s-empty-state>
-              </s-table-body>
-            </IndexTableSection>
-          </s-stack>
-        ) : (
-          <s-banner tone="warning" heading="Market status could not be checked">
-            <s-paragraph>
-              {data.reason === "permission"
-                ? "Approve Shopify Markets access when reopening ShipFlow, then refresh."
-                : "Shopify didn't return market status. This did not change your market settings. Refresh before editing anything in Shopify."}
-            </s-paragraph>
-            <s-button
-              slot="secondary-actions"
-              variant="secondary"
-              loading={refreshing}
-              disabled={refreshing}
-              onClick={onRefresh}
-            >
-              Refresh
-            </s-button>
-            <s-button
-              slot="secondary-actions"
-              href={data.manageUrl}
-              target="_blank"
-              icon="external"
-              variant="secondary"
-            >
-              Review Shopify Markets
-            </s-button>
-          </s-banner>
-        )}
+        {marketsDetail}
         {data.status === "available" ? (
           <s-button
             slot="secondary-actions"

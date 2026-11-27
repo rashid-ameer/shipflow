@@ -1,4 +1,3 @@
-import { BorderedCard } from "../components/bordered-card";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -48,6 +47,7 @@ import { UpsConnectionPanel } from "../components/carrier-connection";
 import prisma from "../db.server";
 import { getMarketsDashboardData } from "../models/market-readiness.server";
 import { listRegions } from "../models/calculated-rates.server";
+import { ratesPaths } from "../models/calculated-rates";
 import {
   defaultAppearance,
   defaultShipping,
@@ -64,6 +64,7 @@ import {
   MapsSettings,
   ProductSyncSettings,
   SettingsPageLayout,
+  SettingsPanel,
   ShippingSettings,
   settingsTabs,
   type SettingsTab,
@@ -386,10 +387,30 @@ export default function Settings() {
             data={settings.markets}
             refreshing={revalidator.state !== "idle"}
             onRefresh={() => void revalidator.revalidate()}
+            showTable
           />
         ) : null}
         {settings.tab === "regions" && settings.regions ? (
-          <RegionsManager regions={settings.regions} />
+          <s-stack direction="block" gap="base">
+            <s-stack
+              direction="inline"
+              gap="base"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <s-heading>Regions</s-heading>
+              <s-button
+                variant="primary"
+                href={`${ratesPaths.regions}?create=1`}
+              >
+                Create region
+              </s-button>
+            </s-stack>
+            <RegionsManager
+              regions={settings.regions}
+              showCreateAction={false}
+            />
+          </s-stack>
         ) : null}
         {settings.tab === "sync" ? (
           <ProductSyncSettings {...settings.sync} />
@@ -413,7 +434,7 @@ export default function Settings() {
         ) : null}
         {settings.tab === "carriers" ? (
           <>
-            <BorderedCard heading="UPS">
+            <SettingsPanel title="UPS">
               <s-paragraph>
                 Create a UPS application with Rating access and link your UPS
                 shipper account.
@@ -425,8 +446,8 @@ export default function Settings() {
                 UPS setup instructions
               </s-link>
               <UpsConnectionPanel connection={settings.connection} />
-            </BorderedCard>
-            <BorderedCard heading="Other carriers">
+            </SettingsPanel>
+            <SettingsPanel title="Other carriers">
               <s-grid
                 gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 160px), 1fr))"
                 gap="base"
@@ -447,7 +468,7 @@ export default function Settings() {
                     </s-box>
                   ))}
               </s-grid>
-            </BorderedCard>
+            </SettingsPanel>
           </>
         ) : null}
       </SettingsPageLayout>
@@ -617,7 +638,7 @@ function SettingsForm({
           </s-banner>
         ) : null}
 
-        <BorderedCard heading="App status">
+        <SettingsPanel title="App status">
           <s-stack direction="block" gap="base">
             <s-select
               key={`status-${resetVersion}`}
@@ -638,7 +659,7 @@ function SettingsForm({
               saved rules or settings.
             </s-paragraph>
           </s-stack>
-        </BorderedCard>
+        </SettingsPanel>
 
         {isCcs && settings.shopLocale ? (
           <CcsSettings
@@ -659,7 +680,7 @@ function SettingsForm({
           />
         )}
 
-        <BorderedCard heading="Operating mode">
+        <SettingsPanel title="Operating mode">
           <s-stack direction="block" gap="base">
             <s-paragraph>
               <s-text type="strong">Current mode: </s-text>
@@ -680,7 +701,7 @@ function SettingsForm({
               </s-button>
             </s-stack>
           </s-stack>
-        </BorderedCard>
+        </SettingsPanel>
       </SettingsPageLayout>
 
       <s-modal
@@ -732,7 +753,7 @@ function CcsSettings({
   onChange: (event: Event) => void;
 }) {
   return (
-    <BorderedCard heading="Basic app setup">
+    <SettingsPanel title="Basic app setup">
       <s-stack direction="block" gap="base">
         <s-grid
           gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 220px), 1fr))"
@@ -843,7 +864,7 @@ function CcsSettings({
           </s-select>
         </s-grid>
       </s-stack>
-    </BorderedCard>
+    </SettingsPanel>
   );
 }
 
@@ -859,7 +880,7 @@ function DeliveryCustomizationSettings({
   onChange: (event: Event) => void;
 }) {
   return (
-    <BorderedCard heading="Delivery Customization settings">
+    <SettingsPanel title="Delivery Customization settings">
       <s-stack direction="block" gap="base">
         <s-paragraph>
           This weight unit is used when ShipFlow evaluates weight-based delivery
@@ -872,7 +893,7 @@ function DeliveryCustomizationSettings({
           onChange={onChange}
         />
       </s-stack>
-    </BorderedCard>
+    </SettingsPanel>
   );
 }
 

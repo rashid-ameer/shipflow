@@ -17,10 +17,26 @@ type RegionEditor = {
   coverage: { country: string; provinces: string }[];
 };
 
-export function RegionsManager({ regions }: { regions: Regions }) {
+const newRegion = (): RegionEditor => ({
+  id: "",
+  name: "",
+  coverage: [{ country: "", provinces: "" }],
+});
+
+export function RegionsManager({
+  regions,
+  showCreateAction = true,
+  autoOpenCreate = false,
+}: {
+  regions: Regions;
+  showCreateAction?: boolean;
+  autoOpenCreate?: boolean;
+}) {
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
-  const [draft, edit] = useState<RegionEditor | null>(null);
+  const [draft, edit] = useState<RegionEditor | null>(() =>
+    autoOpenCreate ? newRegion() : null,
+  );
   const [target, confirm] = useState<Regions[number] | null>(null);
   const [error, setError] = useState<string>();
   const editor = useRef<HTMLElementTagNameMap["s-modal"]>(null);
@@ -54,23 +70,21 @@ export function RegionsManager({ regions }: { regions: Regions }) {
 
   function startCreate() {
     setError(undefined);
-    edit({
-      id: "",
-      name: "",
-      coverage: [{ country: "", provinces: "" }],
-    });
+    edit(newRegion());
   }
 
   return (
     <>
-      <s-button
-        slot="primary-action"
-        variant="primary"
-        disabled={busy || editing || deleting}
-        onClick={startCreate}
-      >
-        Create region
-      </s-button>
+      {showCreateAction ? (
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          disabled={busy || editing || deleting}
+          onClick={startCreate}
+        >
+          Create region
+        </s-button>
+      ) : null}
       <IndexTableSection label="Regions">
         <s-table-header-row>
           <s-table-header listSlot="primary">Region</s-table-header>

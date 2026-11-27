@@ -1,4 +1,3 @@
-import { BorderedCard } from "./bordered-card";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -26,6 +25,21 @@ export const settingsTabs = {
 };
 export type SettingsTab = keyof typeof settingsTabs;
 
+export function SettingsPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <s-stack direction="block" gap="base">
+      <s-heading>{title}</s-heading>
+      {children}
+    </s-stack>
+  );
+}
+
 export function SettingsTabs({ current }: { current: SettingsTab }) {
   const navigate = useNavigate();
   return (
@@ -33,28 +47,60 @@ export function SettingsTabs({ current }: { current: SettingsTab }) {
       background="base"
       border="base base solid"
       borderRadius="base"
-      padding="base"
+      padding="none"
     >
-      <nav aria-label="Settings sections">
-        <s-stack direction="block" gap="small-100">
-          {Object.entries(settingsTabs).map(([tab, name]) => (
-            <s-button
-              key={tab}
-              variant={current === tab ? "secondary" : "tertiary"}
-              aria-current={current === tab ? "page" : undefined}
-              onClick={() => {
-                if (current !== tab)
-                  void navigate(
-                    tab === "basic"
-                      ? "/app/settings"
-                      : `/app/settings?tab=${tab}`,
-                  );
-              }}
-            >
-              {name}
-            </s-button>
-          ))}
-        </s-stack>
+      <style>{`
+        .sf-settings-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 12px;
+        }
+
+        .sf-settings-nav__item {
+          display: block;
+          width: 100%;
+          margin: 0;
+          padding: 8px 12px;
+          border: none;
+          border-radius: 6px;
+          background: transparent;
+          color: #303030;
+          font: inherit;
+          font-size: 13px;
+          line-height: 20px;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .sf-settings-nav__item:hover {
+          background: #f6f6f7;
+        }
+
+        .sf-settings-nav__item[aria-current="page"] {
+          background: #f1f1f1;
+          font-weight: 550;
+        }
+      `}</style>
+      <nav className="sf-settings-nav" aria-label="Settings sections">
+        {Object.entries(settingsTabs).map(([tab, name]) => (
+          <button
+            key={tab}
+            type="button"
+            className="sf-settings-nav__item"
+            aria-current={current === tab ? "page" : undefined}
+            onClick={() => {
+              if (current !== tab)
+                void navigate(
+                  tab === "basic"
+                    ? "/app/settings"
+                    : `/app/settings?tab=${tab}`,
+                );
+            }}
+          >
+            {name}
+          </button>
+        ))}
       </nav>
     </s-box>
   );
@@ -69,18 +115,35 @@ export function SettingsPageLayout({
 }) {
   if (!current) return <>{children}</>;
   return (
-    <s-query-container containerName="settings">
-      <s-grid
-        gridTemplateColumns="@container settings (inline-size > 700px) 220px minmax(0, 1fr), 1fr"
-        gap="base"
-        alignItems="start"
-      >
+    <>
+      <style>{`
+        .sf-settings-layout {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 16px;
+          align-items: start;
+        }
+
+        @media (min-width: 900px) {
+          .sf-settings-layout {
+            grid-template-columns: minmax(220px, 1fr) minmax(0, 3fr);
+          }
+        }
+      `}</style>
+      <div className="sf-settings-layout">
         <SettingsTabs current={current} />
-        <s-stack direction="block" gap="base">
-          {children}
-        </s-stack>
-      </s-grid>
-    </s-query-container>
+        <s-box
+          background="base"
+          border="base base solid"
+          borderRadius="base"
+          padding="large"
+        >
+          <s-stack direction="block" gap="base">
+            {children}
+          </s-stack>
+        </s-box>
+      </div>
+    </>
   );
 }
 
@@ -144,7 +207,7 @@ function PreferenceForm({
     fetcher.submit(body, { method: "post" });
   }
   return (
-    <BorderedCard heading={title}>
+    <SettingsPanel title={title}>
       <ui-save-bar id={saveBar}>
         <button
           type="button"
@@ -179,7 +242,7 @@ function PreferenceForm({
           ) : null}
         </s-stack>
       </s-stack>
-    </BorderedCard>
+    </SettingsPanel>
   );
 }
 
@@ -400,7 +463,7 @@ export function ProductSyncSettings({
   const submit = (values: Record<string, string>) =>
     fetcher.submit(values, { method: "post", action: "/app/products" });
   return (
-    <BorderedCard heading="Product sync">
+    <SettingsPanel title="Product sync">
       <s-stack gap="base">
         {fetcher.data?.error || error ? (
           <s-banner tone="critical">{fetcher.data?.error ?? error}</s-banner>
@@ -435,14 +498,15 @@ export function ProductSyncSettings({
           >
             Sync products
           </s-button>
-          <s-link href="/app/products">Open Products</s-link>
+                    <s-link href="/app/products">Open Products</s-link>
         </s-stack>
       </s-stack>
-    </BorderedCard>
+    </SettingsPanel>
   );
 }
 
-export function MapsSettings({ connected }: { connected: boolean }) {
+export function MapsSettings({
+ connected }: { connected: boolean }) {
   const fetcher = useFetcher<Response>();
   const [key, setKey] = useState("");
   const handled = useRef<Response | undefined>(undefined);
@@ -459,7 +523,7 @@ export function MapsSettings({ connected }: { connected: boolean }) {
       { method: "post" },
     );
   return (
-    <BorderedCard heading="Google Maps">
+    <SettingsPanel title="Google Maps">
       <s-stack gap="base">
         <s-badge tone={connected ? "success" : "neutral"}>
           {connected ? "Connected" : "Not connected"}
@@ -500,6 +564,6 @@ export function MapsSettings({ connected }: { connected: boolean }) {
           ) : null}
         </s-stack>
       </s-stack>
-    </BorderedCard>
+    </SettingsPanel>
   );
 }
