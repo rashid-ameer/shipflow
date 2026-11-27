@@ -167,7 +167,13 @@ try {
   const canada = makeDraft("Canada delivery", "15", rest.id, [
     { field: "country", operator: "eq", value: "CA" },
   ]);
-  const express = makeDraft("US express preview", "22", domestic.id, [], false);
+  const express = makeDraft(
+    "US express preview",
+    "22",
+    domestic.id,
+    [{ field: "country", operator: "eq", value: "US" }],
+    false,
+  );
   const drafts = [standard, free, bulk, canada, express];
   const preview = await persist(express);
   await prisma.store.update({

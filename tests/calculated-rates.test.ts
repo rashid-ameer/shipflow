@@ -69,15 +69,21 @@ assert.equal(
   coverageConflict([{ country: "CA", provinces: [] }], regions)?.id,
   domestic.id,
 );
-assert.equal(
-  validateScenario(
-    { name: "Draft", active: false, conditions: [], rates: [] },
-    "CAD",
-    "kg",
-    [],
-  ).rates.length,
-  0,
-);
+for (const active of [true, false]) {
+  const draft = {
+    name: "Standard",
+    active,
+    conditions: [{ field: "cartQuantity", operator: "gte", value: "1" }],
+    rates: [],
+  };
+  const validate = (input: unknown) => validateScenario(input, "CAD", "kg", []);
+  assert.equal(validate(draft).conditions.length, 1);
+  assert.throws(
+    () => validate({ ...draft, conditions: [] }),
+    /at least one condition/,
+  );
+  assert.throws(() => validate({ ...draft, name: "  " }), /scenario name/);
+}
 
 const base: CheckoutDecisionInput = {
   mode: "ccs-rates",
@@ -200,7 +206,7 @@ assert.equal(quote({ ...valid(10_000), currency: "USD" }).rates.length, 0);
 assert.equal(
   quote({ ...valid(10_000), currency: "JPY" }, base, {
     ...scenario,
-    conditions: [],
+    conditions: [{ field: "cartQuantity", operator: "gte", value: "1" }],
     rates: [{ ...scenario.rates[0], currency: "JPY", amount: 1000 }],
   }).rates[0].total_price,
   "100000",

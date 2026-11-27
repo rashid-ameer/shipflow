@@ -209,6 +209,20 @@ try {
     "CAD",
   );
   await assert.rejects(
+    saveScenario(
+      first.shopDomain,
+      scenario.id,
+      scenario.updatedAt.toISOString(),
+      { ...draft, conditions: [] },
+      "CAD",
+    ),
+    /at least one condition/,
+  );
+  assert.equal(
+    await prisma.rateCondition.count({ where: { scenarioId: scenario.id } }),
+    1,
+  );
+  await assert.rejects(
     () => changeScenarios(first.shopDomain, [scenario.id], "activate"),
     /Connect the Carrier Service/,
   );

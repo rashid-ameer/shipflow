@@ -24,7 +24,7 @@ The operating mode that returns new priced shipping options through Shopify Carr
 _Avoid_: Pro, CCS plan
 
 **Shipping scenario**:
-A saved set of checkout conditions and rates in CCS Rates mode. Every condition must match.
+A named set of shipping rates with at least one checkout condition in CCS Rates mode. Every condition must match.
 _Avoid_: Delivery customization rule
 
 **Shipping region**:

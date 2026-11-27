@@ -372,10 +372,11 @@ export function validateScenario(
 ) {
   const draft = input as Partial<ScenarioDraft> | null;
   const name = validName(draft?.name, "scenario");
+  if (!Array.isArray(draft?.conditions) || draft.conditions.length === 0) {
+    throw new Error("Add at least one condition to save this scenario.");
+  }
   if (
-    !draft ||
     typeof draft.active !== "boolean" ||
-    !Array.isArray(draft.conditions) ||
     draft.conditions.length > 30 ||
     !Array.isArray(draft.rates) ||
     draft.rates.length > 100

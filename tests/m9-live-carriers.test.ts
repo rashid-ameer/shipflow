@@ -185,7 +185,7 @@ try {
   const draft: ScenarioDraft = {
     name: "Carrier integration",
     active: true,
-    conditions: [],
+    conditions: [{ field: "cartQuantity", operator: "gte", value: "1" }],
     rates: [
       {
         id,

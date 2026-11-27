@@ -64,7 +64,7 @@ try {
   const draft: ScenarioDraft = {
     name: "M6 demo",
     active: true,
-    conditions: [],
+    conditions: [{ field: "cartQuantity", operator: "gte", value: "1" }],
     rates: [
       {
         ...rate,

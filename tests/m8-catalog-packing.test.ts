@@ -407,7 +407,7 @@ try {
     {
       name: "Fallback",
       active: true,
-      conditions: [],
+      conditions: [{ field: "cartQuantity", operator: "gte", value: "1" }],
       rates: [make("Standard")],
     },
     "USD",

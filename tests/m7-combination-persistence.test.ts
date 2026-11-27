@@ -58,7 +58,7 @@ try {
   const draft = (name: string, price: string, tags: string): ScenarioDraft => ({
     name,
     active: true,
-    conditions: [],
+    conditions: [{ field: "cartQuantity", operator: "gte", value: "1" }],
     rates: [
       {
         id: randomUUID(),

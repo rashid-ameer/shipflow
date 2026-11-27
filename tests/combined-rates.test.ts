@@ -189,7 +189,7 @@ const settings: CheckoutDecisionInput = {
 };
 const scenario: Scenario = {
   active: true,
-  conditions: [],
+  conditions: [{ field: "cartQuantity", operator: "gte", value: "1" }],
   rates: sources.map(({ id, tags, name, amountInMinorUnits }) => ({
     id,
     tags,

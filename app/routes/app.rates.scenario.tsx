@@ -152,8 +152,10 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
   const saving = fetcher.state !== "idle";
   const open = entry !== null;
   const locked = !ready || saving;
+  const hasName = draft.name.trim().length > 0;
+  const hasConditions = draft.conditions.length > 0;
   const canSave =
-    dirty && !locked && Boolean(initial.currency && draft.name.trim());
+    dirty && !locked && Boolean(initial.currency) && hasName && hasConditions;
 
   useEffect(() => {
     let mounted = true;
@@ -320,6 +322,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
             <s-text-field
               label="Scenario name"
               required
+              error={hasConditions && !hasName ? "Enter a scenario name." : undefined}
               maxLength={120}
               value={draft.name}
               disabled={locked}
@@ -352,10 +355,9 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
         </BorderedCard>
         <BorderedCard heading="Conditions">
           <s-stack gap="base">
-            {draft.conditions.length === 0 ? (
+            {!hasConditions ? (
               <s-paragraph>
-                Without conditions, this scenario matches every cart in its
-                regions.
+                Add at least one condition to save this scenario.
               </s-paragraph>
             ) : null}
             {draft.conditions.map((value, index) => (
