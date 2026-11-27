@@ -57,7 +57,6 @@ export default function AppLayout() {
           <s-link href="/app" rel="home">
             Home
           </s-link>
-          <s-link href="/app">Home</s-link>
           {mode === "ccs-rates" ? (
             <>
               <s-link href={ratesPaths.hub}>Rates</s-link>
