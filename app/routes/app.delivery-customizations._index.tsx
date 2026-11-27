@@ -7,12 +7,12 @@ import {
   redirect,
   useLoaderData,
   useRevalidator,
+  useSearchParams,
   type LoaderFunctionArgs,
 } from "react-router";
 import {
   deliveryCheckoutStatus,
   deliveryPaths,
-  DELIVERY_LIMIT,
 } from "../models/delivery-customization";
 import {
   getDeliveryRules,
@@ -20,6 +20,11 @@ import {
 } from "../models/delivery-customization.server";
 import { getOrCreateShop } from "../models/shop-settings.server";
 import { authenticate } from "../shopify.server";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { admin, session } = await authenticate.admin(request);
@@ -30,8 +35,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   ) {
     throw redirect("/app");
   }
-  const rows = await getDeliveryRules(store.id);
-  const { states, used, issue } = await getDeliveryStatus(
+  const allRows = await getDeliveryRules(store.id);
+  const requested = Number(new URL(request.url).searchParams.get("page"));
+  const page = clampIndexPage(requested, allRows.length);
+  const totalPages = indexPageCount(allRows.length);
+  const rows = allRows.slice(
+    (page - 1) * INDEX_PAGE_SIZE,
+    page * INDEX_PAGE_SIZE,
+  );
+  const { states, issue } = await getDeliveryStatus(
     admin.graphql,
     rows,
     store,
@@ -43,16 +55,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
       active,
       status: states[id],
     })),
-    used,
+    page,
+    totalPages,
     issue,
     appEnabled: store.appEnabled,
   };
 }
 
 export default function DeliveryCustomizations() {
-  const { rows, used, issue, appEnabled } = useLoaderData<typeof loader>();
+  const { rows, page, totalPages, issue, appEnabled } =
+    useLoaderData<typeof loader>();
   const shopify = useAppBridge();
   const revalidator = useRevalidator();
+  const [, setParams] = useSearchParams();
+  function go(next: number) {
+    setParams(next > 1 ? { page: String(next) } : {});
+  }
   return (
     <s-page heading="Delivery customizations">
       <s-link slot="breadcrumb-actions" href="/app">
@@ -92,7 +110,14 @@ export default function DeliveryCustomizations() {
             </s-button>
           </s-banner>
         ) : null}
-        <IndexTableSection label="Delivery customizations">
+        <IndexTableSection
+          label="Delivery customizations"
+          paginate={totalPages > 1}
+          hasPreviousPage={page > 1}
+          hasNextPage={page < totalPages}
+          onPreviousPage={() => go(page - 1)}
+          onNextPage={() => go(page + 1)}
+        >
           <s-table-header-row>
             <s-table-header listSlot="primary">Customization</s-table-header>
             <s-table-header listSlot="inline">Saved status</s-table-header>
@@ -156,11 +181,10 @@ export default function DeliveryCustomizations() {
             ) : null}
           </s-table-body>
         </IndexTableSection>
-        {used !== null ? (
-          <s-paragraph>
-            {used} of {DELIVERY_LIMIT} active customization slots used across all
-            apps.
-          </s-paragraph>
+        {totalPages > 1 ? (
+          <s-text color="subdued">
+            {page} of {totalPages}
+          </s-text>
         ) : null}
       </s-stack>
     </s-page>

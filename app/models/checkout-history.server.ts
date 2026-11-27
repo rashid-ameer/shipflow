@@ -10,6 +10,11 @@ import {
   historyCutoff,
   type historyFilters,
 } from "./checkout-history";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
 export async function recordCarrierRequest(
   storeId: string,
@@ -61,13 +66,13 @@ export async function listCarrierRequests(
     prisma.carrierRequest.count({ where }),
     prisma.carrierRequest.findFirst({ where: recent, select: { id: true } }),
   ]);
-  const pageCount = Math.max(1, Math.ceil(count / 25));
-  const page = Math.min(filters.page, pageCount);
+  const pageCount = indexPageCount(count);
+  const page = clampIndexPage(filters.page, count);
   const rows = await prisma.carrierRequest.findMany({
     where,
     orderBy: [{ receivedAt: "desc" }, { id: "desc" }],
-    take: 25,
-    skip: (page - 1) * 25,
+    take: INDEX_PAGE_SIZE,
+    skip: (page - 1) * INDEX_PAGE_SIZE,
     select: {
       id: true,
       receivedAt: true,

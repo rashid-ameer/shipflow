@@ -9,6 +9,11 @@ import { useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
 import type { MarketsDashboardData } from "../models/market-readiness";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
 type MarketFilter = "all" | "ready" | "needs-setup";
 
@@ -29,6 +34,7 @@ export function MarketsDashboard({
 }) {
   const shopify = useAppBridge();
   const [filter, setFilter] = useState<MarketFilter>("all");
+  const [page, setPage] = useState(1);
   const markets = data.status === "available" ? data.markets : [];
   const readyCount = data.status === "available" ? data.readyCount : 0;
   const needsSetupCount = markets.length - readyCount;
@@ -38,6 +44,16 @@ export function MarketsDashboard({
     if (filter === "needs-setup") return !ready;
     return true;
   });
+  const pageCount = indexPageCount(visibleMarkets.length);
+  const currentPage = clampIndexPage(page, visibleMarkets.length);
+  const pageMarkets = visibleMarkets.slice(
+    (currentPage - 1) * INDEX_PAGE_SIZE,
+    currentPage * INDEX_PAGE_SIZE,
+  );
+  function chooseFilter(next: MarketFilter) {
+    setFilter(next);
+    setPage(1);
+  }
 
   const marketsDescription =
     data.status === "available"
@@ -98,30 +114,36 @@ export function MarketsDashboard({
   );
 
   const marketsTable = (
-    <IndexTableSection
-      label="Markets"
-      filters={
+    <>
+      <IndexTableSection
+        label="Markets"
+        paginate={pageCount > 1}
+        hasPreviousPage={currentPage > 1}
+        hasNextPage={currentPage < pageCount}
+        onPreviousPage={() => setPage(currentPage - 1)}
+        onNextPage={() => setPage(currentPage + 1)}
+        filters={
         <>
           <IndexTableFilters columns="auto">
             <s-stack direction="inline" gap="small-200">
               <s-button
                 {...pressedState(filter === "all")}
                 variant={filter === "all" ? "primary" : "secondary"}
-                onClick={() => setFilter("all")}
+                onClick={() => chooseFilter("all")}
               >
                 All ({markets.length})
               </s-button>
               <s-button
                 {...pressedState(filter === "ready")}
                 variant={filter === "ready" ? "primary" : "secondary"}
-                onClick={() => setFilter("ready")}
+                onClick={() => chooseFilter("ready")}
               >
                 Ready ({readyCount})
               </s-button>
               <s-button
                 {...pressedState(filter === "needs-setup")}
                 variant={filter === "needs-setup" ? "primary" : "secondary"}
-                onClick={() => setFilter("needs-setup")}
+                onClick={() => chooseFilter("needs-setup")}
               >
                 Needs setup ({needsSetupCount})
               </s-button>
@@ -137,11 +159,11 @@ export function MarketsDashboard({
                         filter === "ready"
                           ? "Status: Ready"
                           : "Status: Needs setup",
-                      onRemove: () => setFilter("all"),
+                      onRemove: () => chooseFilter("all"),
                     },
                   ]
             }
-            onClearAll={() => setFilter("all")}
+            onClearAll={() => chooseFilter("all")}
           />
         </>
       }
@@ -152,7 +174,7 @@ export function MarketsDashboard({
         <s-table-header>Actions</s-table-header>
       </s-table-header-row>
       <s-table-body>
-        {visibleMarkets.map((market) => (
+        {pageMarkets.map((market) => (
           <s-table-row key={market.id}>
             <s-table-cell>
               <s-text type="strong">{market.name}</s-text>
@@ -191,25 +213,33 @@ export function MarketsDashboard({
             </s-table-cell>
           </s-table-row>
         ))}
-        <s-empty-state
-          heading={
-            filter === "ready"
-              ? "No ready markets"
-              : filter === "needs-setup"
-                ? "All markets are ready"
-                : "No active markets"
-          }
-        >
-          <s-text slot="subheading">
-            {filter === "ready"
-              ? "No market currently has ShipFlow enabled as a carrier-calculated rate provider."
-              : filter === "needs-setup"
-                ? "ShipFlow is enabled in every active market."
-                : "Create or activate a Shopify Market. It will appear here automatically after you refresh."}
-          </s-text>
-        </s-empty-state>
+        {visibleMarkets.length === 0 ? (
+          <s-empty-state
+            heading={
+              filter === "ready"
+                ? "No ready markets"
+                : filter === "needs-setup"
+                  ? "All markets are ready"
+                  : "No active markets"
+            }
+          >
+            <s-text slot="subheading">
+              {filter === "ready"
+                ? "No market currently has ShipFlow enabled as a carrier-calculated rate provider."
+                : filter === "needs-setup"
+                  ? "ShipFlow is enabled in every active market."
+                  : "Create or activate a Shopify Market. It will appear here automatically after you refresh."}
+            </s-text>
+          </s-empty-state>
+        ) : null}
       </s-table-body>
-    </IndexTableSection>
+      </IndexTableSection>
+      {pageCount > 1 ? (
+        <s-text color="subdued">
+          {currentPage} of {pageCount}
+        </s-text>
+      ) : null}
+    </>
   );
 
   const marketsDetail =

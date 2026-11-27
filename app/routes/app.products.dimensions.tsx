@@ -22,9 +22,13 @@ import {
   readDimensions,
   type DimensionValues,
 } from "../models/product-dimensions";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
 const saveBar = "product-dimensions-save-bar";
-const pageSize = 30;
 const labels = { length: "Length", width: "Width", height: "Height" };
 
 async function productContext({
@@ -53,16 +57,13 @@ async function productContext({
 export async function loader(args: LoaderFunctionArgs) {
   const { storeId, productId, product, unit } = await productContext(args);
   const requested = Number(new URL(args.request.url).searchParams.get("page"));
-  const pages = Math.max(1, Math.ceil(product._count.variants / pageSize));
-  const page =
-    Number.isSafeInteger(requested) && requested > 0
-      ? Math.min(pages, requested)
-      : 1;
+  const pages = indexPageCount(product._count.variants);
+  const page = clampIndexPage(requested, product._count.variants);
   const variants = await prisma.catalogVariant.findMany({
     where: { storeId, productId },
     orderBy: { id: "asc" },
-    take: pageSize,
-    skip: (page - 1) * pageSize,
+    take: INDEX_PAGE_SIZE,
+    skip: (page - 1) * INDEX_PAGE_SIZE,
   });
   return {
     id: String(productId),
@@ -101,7 +102,11 @@ export async function action(args: ActionFunctionArgs) {
       revision: number;
       values: DimensionValues;
     }[];
-    if (!Array.isArray(draft) || !draft.length || draft.length > pageSize)
+    if (
+      !Array.isArray(draft) ||
+      !draft.length ||
+      draft.length > INDEX_PAGE_SIZE
+    )
       throw new Error("Choose the variants to update.");
     const entries = draft.map(({ id, revision, values }) => {
       const variantId = catalogId(id);

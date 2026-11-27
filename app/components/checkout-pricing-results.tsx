@@ -12,6 +12,12 @@ import {
   type CartSnapshot,
 } from "../models/checkout-history";
 import { combinationMethods } from "../models/combined-rates";
+import { useEffect, useState } from "react";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
 const conditionLabels: Record<ConditionOutcome, string> = {
   matched: "Matched",
@@ -76,6 +82,15 @@ export function CheckoutPricingResults({
   )
     ? pricingReasonText[reason as PricingReason]
     : "Checkout pricing outcome unavailable.";
+  const [ratePage, setRatePage] = useState(1);
+  useEffect(() => setRatePage(1), [trace]);
+  const rateCountForPage = trace?.rates.length ?? 0;
+  const ratePageCount = indexPageCount(rateCountForPage);
+  const currentRatePage = clampIndexPage(ratePage, rateCountForPage);
+  const pageRates = (trace?.rates ?? []).slice(
+    (currentRatePage - 1) * INDEX_PAGE_SIZE,
+    currentRatePage * INDEX_PAGE_SIZE,
+  );
   return (
     <BorderedCard heading="Rates">
       <s-stack gap="base">
@@ -235,8 +250,16 @@ export function CheckoutPricingResults({
                   {selectionLabels[trace.selection]} ·{" "}
                   {roundingLabels[trace.rounding]}
                 </s-paragraph>
-                <IndexTableSection label="Price breakdown">
-                  <s-table-header-row>
+                <>
+                  <IndexTableSection
+                    label="Price breakdown"
+                    paginate={ratePageCount > 1}
+                    hasPreviousPage={currentRatePage > 1}
+                    hasNextPage={currentRatePage < ratePageCount}
+                    onPreviousPage={() => setRatePage(currentRatePage - 1)}
+                    onNextPage={() => setRatePage(currentRatePage + 1)}
+                  >
+                    <s-table-header-row>
                     <s-table-header listSlot="primary">
                       Shipping rate
                     </s-table-header>
@@ -249,7 +272,7 @@ export function CheckoutPricingResults({
                     </s-table-header>
                   </s-table-header-row>
                   <s-table-body>
-                    {trace.rates.map((rate) => (
+                    {pageRates.map((rate) => (
                       <s-table-row key={rate.id}>
                         <s-table-cell>
                           <s-stack gap="small">
@@ -279,8 +302,14 @@ export function CheckoutPricingResults({
                         </s-table-cell>
                       </s-table-row>
                     ))}
-                  </s-table-body>
-                </IndexTableSection>
+                    </s-table-body>
+                  </IndexTableSection>
+                  {ratePageCount > 1 ? (
+                    <s-text color="subdued">
+                      {currentRatePage} of {ratePageCount}
+                    </s-text>
+                  ) : null}
+                </>
                 {trace.rates
                   .filter(
                     (rate) =>
@@ -334,6 +363,14 @@ export function CheckoutPricingResults({
 }
 
 export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
+  const [linePage, setLinePage] = useState(1);
+  useEffect(() => setLinePage(1), [snapshot]);
+  const linePageCount = indexPageCount(snapshot.lines.length);
+  const currentLinePage = clampIndexPage(linePage, snapshot.lines.length);
+  const pageLines = snapshot.lines.slice(
+    (currentLinePage - 1) * INDEX_PAGE_SIZE,
+    currentLinePage * INDEX_PAGE_SIZE,
+  );
   return (
     <BorderedCard heading="Cart details">
       <s-stack gap="base">
@@ -353,8 +390,16 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
             <s-text>Checkout language: {snapshot.locale}</s-text>
           ) : null}
         </s-stack>
-        <IndexTableSection label="Cart items">
-          <s-table-header-row>
+        <>
+          <IndexTableSection
+            label="Cart items"
+            paginate={linePageCount > 1}
+            hasPreviousPage={currentLinePage > 1}
+            hasNextPage={currentLinePage < linePageCount}
+            onPreviousPage={() => setLinePage(currentLinePage - 1)}
+            onNextPage={() => setLinePage(currentLinePage + 1)}
+          >
+            <s-table-header-row>
             <s-table-header listSlot="primary">Item</s-table-header>
             <s-table-header listSlot="labeled" format="numeric">
               Quantity
@@ -367,7 +412,7 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
             </s-table-header>
           </s-table-header-row>
           <s-table-body>
-            {snapshot.lines.map((line, index) => (
+            {pageLines.map((line, index) => (
               <s-table-row key={index}>
                 <s-table-cell>
                   {line.name ??
@@ -384,8 +429,14 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
                 </s-table-cell>
               </s-table-row>
             ))}
-          </s-table-body>
-        </IndexTableSection>
+            </s-table-body>
+          </IndexTableSection>
+          {linePageCount > 1 ? (
+            <s-text color="subdued">
+              {currentLinePage} of {linePageCount}
+            </s-text>
+          ) : null}
+        </>
         {snapshot.extraLines ? (
           <s-paragraph>
             {snapshot.extraLines} additional items were included in pricing.

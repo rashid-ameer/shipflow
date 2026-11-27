@@ -10,6 +10,11 @@ import {
 } from "../models/calculated-rates";
 import type { listRegions } from "../models/calculated-rates.server";
 import type { action } from "../routes/app.rates.regions";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
 type Regions = Awaited<ReturnType<typeof listRegions>>;
 type RegionEditor = {
@@ -48,11 +53,18 @@ export function RegionsManager({
   const [draft, edit] = useState<RegionEditor | null>(null);
   const [target, confirm] = useState<Regions[number] | null>(null);
   const [error, setError] = useState<string>();
+  const [page, setPage] = useState(1);
   const editor = useRef<HTMLElementTagNameMap["s-modal"]>(null);
   const del = useRef<HTMLElementTagNameMap["s-modal"]>(null);
   const handled = useRef<typeof fetcher.data>(undefined);
   const busy = fetcher.state !== "idle";
   const canDelete = regions.filter((row) => row.kind !== "REST").length > 1;
+  const pageCount = indexPageCount(regions.length);
+  const currentPage = clampIndexPage(page, regions.length);
+  const pageRegions = regions.slice(
+    (currentPage - 1) * INDEX_PAGE_SIZE,
+    currentPage * INDEX_PAGE_SIZE,
+  );
 
   const editing = draft !== null;
   const deleting = target !== null;
@@ -88,7 +100,15 @@ export function RegionsManager({
     ) : null;
 
   const table = (
-    <IndexTableSection label="Regions">
+    <>
+      <IndexTableSection
+        label="Regions"
+        paginate={pageCount > 1}
+        hasPreviousPage={currentPage > 1}
+        hasNextPage={currentPage < pageCount}
+        onPreviousPage={() => setPage(currentPage - 1)}
+        onNextPage={() => setPage(currentPage + 1)}
+      >
         <s-table-header-row>
           <s-table-header listSlot="primary">Region</s-table-header>
           <s-table-header listSlot="labeled">Coverage</s-table-header>
@@ -96,7 +116,7 @@ export function RegionsManager({
           <s-table-header>Actions</s-table-header>
         </s-table-header-row>
         <s-table-body>
-          {regions.map((region) => (
+          {pageRegions.map((region) => (
             <s-table-row key={region.id}>
               <s-table-cell>{region.name}</s-table-cell>
               <s-table-cell>
@@ -146,7 +166,13 @@ export function RegionsManager({
             </s-empty-state>
           ) : null}
         </s-table-body>
-    </IndexTableSection>
+      </IndexTableSection>
+      {pageCount > 1 ? (
+        <s-text color="subdued">
+          {currentPage} of {pageCount}
+        </s-text>
+      ) : null}
+    </>
   );
 
   return (

@@ -38,8 +38,11 @@ import {
   readDimensionRecipient,
   sendDimensionEmail,
 } from "../models/dimensions-csv.server";
-
-const pageSize = 25;
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 const axes = { length: "Length", width: "Width", height: "Height" };
 
 async function productContext(request: Request) {
@@ -69,16 +72,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     prisma.catalogProduct.count({ where }),
   ]);
   const requested = Number(params.get("page"));
-  const totalPages = Math.max(1, Math.ceil(count / pageSize));
-  const page =
-    Number.isSafeInteger(requested) && requested > 0
-      ? Math.min(requested, totalPages)
-      : 1;
+  const totalPages = indexPageCount(count);
+  const page = clampIndexPage(requested, count);
   const products = await prisma.catalogProduct.findMany({
     where,
     orderBy: [{ title: "asc" }, { id: "asc" }],
-    take: pageSize,
-    skip: (page - 1) * pageSize,
+    take: INDEX_PAGE_SIZE,
+    skip: (page - 1) * INDEX_PAGE_SIZE,
     select: {
       id: true,
       title: true,

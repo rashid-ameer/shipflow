@@ -16,6 +16,11 @@ import {
   validateCoverage,
   validateScenario,
 } from "./calculated-rates";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
 export class RateFormError extends Error {}
 
@@ -326,13 +331,13 @@ export async function listScenarios(
     prisma.rateScenario.count({ where: { storeId } }),
     prisma.rateScenario.count({ where }),
   ]);
-  const pageCount = Math.max(1, Math.ceil(count / 25));
-  const current = Math.min(page, pageCount);
+  const pageCount = indexPageCount(count);
+  const current = clampIndexPage(page, count);
   const rows = await prisma.rateScenario.findMany({
     where,
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-    skip: (current - 1) * 25,
-    take: 25,
+    skip: (current - 1) * INDEX_PAGE_SIZE,
+    take: INDEX_PAGE_SIZE,
     select: {
       id: true,
       name: true,

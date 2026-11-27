@@ -7,8 +7,13 @@ import {
   requireCarrier,
 } from "./calculated-rates.server";
 import { combinedDraft, validateCombinedDraft } from "./combined-rates";
+import {
+  clampIndexPage,
+  INDEX_PAGE_SIZE,
+  indexPageCount,
+} from "../pagination";
 
-export const combinedPageSize = 25;
+export const combinedPageSize = INDEX_PAGE_SIZE;
 
 export function combinedEditorData(row: CombinedRateRule) {
   const { storeId: _store, position: _position, updatedAt, ...rule } = row;
@@ -37,8 +42,8 @@ export async function listCombinedRules(
     prisma.combinedRateRule.count({ where: { storeId } }),
     prisma.combinedRateRule.count({ where }),
   ]);
-  const pageCount = Math.max(1, Math.ceil(count / combinedPageSize));
-  const page = Math.min(filters.page, pageCount);
+  const pageCount = indexPageCount(count);
+  const page = clampIndexPage(filters.page, count);
   const rows = await prisma.combinedRateRule.findMany({
     where,
     orderBy:
