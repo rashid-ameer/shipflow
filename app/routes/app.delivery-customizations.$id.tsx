@@ -256,11 +256,6 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
     setEntry(value);
   }
 
-  function close() {
-    modal.current?.hideOverlay();
-    setEntry(null);
-  }
-
   function applyEntry() {
     if (!entry) return;
     const sample = {
@@ -300,7 +295,7 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
         ),
       });
     }
-    close();
+    modal.current?.hideOverlay();
   }
 
   const checkout = initial.status
@@ -573,7 +568,7 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
         id="delivery-rule-entry"
         ref={modal as never}
         heading={entry?.kind === "condition" ? "Condition" : "Action"}
-        onAfterHide={() => setEntry(null)}
+        onHide={() => setEntry(null)}
       >
         {entry ? (
           <s-stack gap="base">
@@ -603,7 +598,12 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
             )}
           </s-stack>
         ) : null}
-        <s-button slot="secondary-actions" variant="secondary" onClick={close}>
+        <s-button
+          slot="secondary-actions"
+          variant="secondary"
+          commandFor="delivery-rule-entry"
+          command="--hide"
+        >
           Cancel
         </s-button>
         <s-button slot="primary-action" variant="primary" onClick={applyEntry}>

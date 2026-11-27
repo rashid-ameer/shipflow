@@ -1,5 +1,5 @@
 import { BorderedCard } from "../components/bordered-card";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   useLoaderData,
@@ -190,10 +190,23 @@ function HistoryList({
   const revalidator = useRevalidator();
   const [, setParams] = useSearchParams();
   const [query, setQuery] = useState(history.search);
-  const [from, setFrom] = useState(history.from);
-  const [to, setTo] = useState(history.to);
+  const [draftRange, setDraftRange] = useState<string>();
+  const datePopover = useRef<HTMLElementTagNameMap["s-popover"]>(null);
+  const [from, to = ""] =
+    draftRange === undefined
+      ? [history.from, history.to]
+      : draftRange.split("--");
+  const selectingEnd = draftRange !== undefined && Boolean(from && !to);
   const invalidDates = Boolean(from && to && from > to);
-  const dateRange = `${history.min}--${history.max}`;
+  const rangeStart = from || history.min;
+  const rangeEnd = to || history.max;
+  const rangeLabel = selectingEnd
+    ? `${from} – Select end date`
+    : from || to
+      ? rangeStart === rangeEnd
+        ? rangeStart
+        : `${rangeStart} – ${rangeEnd}`
+      : "";
   function go(page: number, includeDraftFilters = false) {
     const next = new URLSearchParams();
     const [search, start, end] = includeDraftFilters
@@ -215,32 +228,47 @@ function HistoryList({
           disabled={loading}
           onInput={(event) => setQuery(event.currentTarget.value)}
         />
-        <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 220px), 1fr))"
-          gap="small"
-        >
-          <s-date-field
-            id="history-from"
-            label="From"
-            value={from}
-            allow={dateRange}
-            disabled={loading}
-            onChange={(event) => setFrom(event.currentTarget.value)}
-          />
-          <s-date-field
-            id="history-to"
-            label="To"
-            value={to}
-            allow={dateRange}
-            disabled={loading}
-            error={
-              invalidDates
-                ? "Choose an end date on or after the start date."
-                : undefined
+        <s-stack direction="inline">
+          <s-button
+            icon="calendar"
+            accessibilityLabel={
+              rangeLabel ? `Date range, ${rangeLabel}` : undefined
             }
-            onChange={(event) => setTo(event.currentTarget.value)}
-          />
-        </s-grid>
+            commandFor="history-date-range"
+            command="--toggle"
+            disabled={loading}
+          >
+            {rangeLabel || "Date range"}
+          </s-button>
+        </s-stack>
+        <s-popover id="history-date-range" ref={datePopover} inlineSize="300px">
+          <s-box padding="small">
+            <s-date-picker
+              type="range"
+              allow={`${history.min}--${history.max}`}
+              defaultView={(history.from || history.to || history.max).slice(
+                0,
+                7,
+              )}
+              value={
+                draftRange ?? (from || to ? `${rangeStart}--${rangeEnd}` : "")
+              }
+              onInput={(event) => setDraftRange(event.currentTarget.value)}
+              onChange={() =>
+                (
+                  datePopover.current as unknown as {
+                    hideOverlay(): void;
+                  } | null
+                )?.hideOverlay()
+              }
+            />
+          </s-box>
+        </s-popover>
+        {invalidDates ? (
+          <s-text tone="critical">
+            Choose an end date on or after the start date.
+          </s-text>
+        ) : null}
         <s-stack direction="inline" gap="small" justifyContent="end">
           {history.search ||
           history.from ||
@@ -252,8 +280,7 @@ function HistoryList({
               disabled={loading}
               onClick={() => {
                 setQuery("");
-                setFrom("");
-                setTo("");
+                setDraftRange("");
                 setParams(new URLSearchParams());
               }}
             >
@@ -261,7 +288,7 @@ function HistoryList({
             </s-button>
           ) : null}
           <s-button
-            disabled={loading || invalidDates}
+            disabled={loading || selectingEnd || invalidDates}
             onClick={() => go(1, true)}
           >
             Apply filters

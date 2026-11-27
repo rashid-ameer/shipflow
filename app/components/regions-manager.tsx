@@ -45,8 +45,8 @@ export function RegionsManager({ regions }: { regions: Regions }) {
       setError(result.error);
       return;
     }
-    editor.current?.hideOverlay();
-    del.current?.hideOverlay();
+    const completedModal = result.intent === "delete" ? del : editor;
+    completedModal.current?.hideOverlay();
     shopify.toast.show(
       result.intent === "delete" ? "Region deleted" : "Region saved",
     );
@@ -139,6 +139,7 @@ export function RegionsManager({ regions }: { regions: Regions }) {
         </s-stack>
       </BorderedCard>
       <s-modal
+        id="region-editor-modal"
         ref={editor as never}
         heading={draft?.id ? "Edit region" : "Create region"}
         onAfterHide={() => edit(null)}
@@ -238,7 +239,8 @@ export function RegionsManager({ regions }: { regions: Regions }) {
           slot="secondary-actions"
           variant="secondary"
           disabled={busy}
-          onClick={() => editor.current?.hideOverlay()}
+          commandFor="region-editor-modal"
+          command="--hide"
         >
           Cancel
         </s-button>
@@ -273,6 +275,7 @@ export function RegionsManager({ regions }: { regions: Regions }) {
         </s-button>
       </s-modal>
       <s-modal
+        id="delete-region-modal"
         ref={del as never}
         heading={target ? `Delete ${target.name}?` : "Delete region?"}
         onAfterHide={() => confirm(null)}
@@ -287,7 +290,8 @@ export function RegionsManager({ regions }: { regions: Regions }) {
           slot="secondary-actions"
           variant="secondary"
           disabled={busy}
-          onClick={() => del.current?.hideOverlay()}
+          commandFor="delete-region-modal"
+          command="--hide"
         >
           Cancel
         </s-button>

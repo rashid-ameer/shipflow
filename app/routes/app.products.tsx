@@ -237,11 +237,9 @@ export default function Products() {
       setFile(undefined);
       setUploadVersion((version) => version + 1);
       csvModal.current?.hideOverlay();
-      setDialog(undefined);
     }
     if (result.message === "Metafield sync queued") {
       mappingModal.current?.hideOverlay();
-      setDialog(undefined);
     }
   }, [busy, result, shopify]);
   function submit(intent: string, values: Record<string, string> = {}) {
@@ -424,7 +422,9 @@ export default function Products() {
         id="dimension-mapping"
         ref={mappingModal}
         heading="Sync product dimensions from metafields"
-        onHide={() => setDialog(undefined)}
+        onHide={() =>
+          setDialog((current) => (current === "mapping" ? undefined : current))
+        }
       >
         <s-stack gap="base">
           <s-paragraph>
@@ -506,7 +506,9 @@ export default function Products() {
         id="dimensions-csv"
         ref={csvModal}
         heading="Import product dimensions"
-        onHide={() => setDialog(undefined)}
+        onHide={() =>
+          setDialog((current) => (current === "csv" ? undefined : current))
+        }
       >
         <s-stack gap="base">
           <s-paragraph>

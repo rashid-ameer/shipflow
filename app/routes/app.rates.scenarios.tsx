@@ -98,7 +98,7 @@ export default function ScenariosPage() {
     handled.current = result;
     if (result.ok) {
       setSelected([]);
-      modal.current?.hideOverlay();
+      if (result.intent === "delete") modal.current?.hideOverlay();
       shopify.toast.show(
         result.intent === "delete"
           ? "Scenarios deleted"
@@ -330,6 +330,7 @@ export default function ScenariosPage() {
         </BorderedCard>
       </s-stack>
       <s-modal
+        id="delete-scenarios-modal"
         ref={modal as never}
         heading={`Delete ${selection.length} ${selection.length === 1 ? "scenario" : "scenarios"}?`}
       >
@@ -344,7 +345,8 @@ export default function ScenariosPage() {
           slot="secondary-actions"
           variant="secondary"
           disabled={busy}
-          onClick={() => modal.current?.hideOverlay()}
+          commandFor="delete-scenarios-modal"
+          command="--hide"
         >
           Cancel
         </s-button>

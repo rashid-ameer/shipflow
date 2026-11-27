@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   data,
   redirect,
@@ -59,10 +59,9 @@ export default function OnboardingMode() {
   >(null);
   const submitting = navigation.state === "submitting";
 
-  const requestMode = (mode: "delivery-customization" | "ccs-rates") => {
-    setSelectedMode(mode);
-    confirmModalRef.current?.showOverlay();
-  };
+  useEffect(() => {
+    if (selectedMode) confirmModalRef.current?.showOverlay();
+  }, [selectedMode]);
 
   const confirmMode = () => {
     if (!selectedMode) return;
@@ -73,7 +72,7 @@ export default function OnboardingMode() {
     <s-button
       variant="primary"
       disabled={submitting}
-      onClick={() => requestMode(mode)}
+      onClick={() => setSelectedMode(mode)}
     >
       {mode === "ccs-rates"
         ? "Use CCS Rates"
@@ -132,6 +131,7 @@ export default function OnboardingMode() {
       <s-modal
         id="confirm-onboarding-mode"
         ref={confirmModalRef as never}
+        onHide={() => setSelectedMode(null)}
         heading={
           selectedMode === "ccs-rates"
             ? "Use CCS Rates?"

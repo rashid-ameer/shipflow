@@ -187,10 +187,9 @@ export default function Dashboard() {
     shopify.toast.show("Test Mode turned off");
   }, [goLiveFetcher.state, goLiveFetcher.data, shopify]);
 
-  const requestSwitch = (mode: "delivery-customization" | "ccs-rates") => {
-    setTargetMode(mode);
-    switchModalRef.current?.showOverlay();
-  };
+  useEffect(() => {
+    if (targetMode) switchModalRef.current?.showOverlay();
+  }, [targetMode]);
 
   const confirmSwitch = () => {
     if (!targetMode) return;
@@ -280,7 +279,7 @@ export default function Dashboard() {
             <s-button
               slot="secondary-actions"
               variant="secondary"
-              onClick={() => requestSwitch("delivery-customization")}
+              onClick={() => setTargetMode("delivery-customization")}
             >
               Switch to Delivery Customization
             </s-button>
@@ -396,7 +395,7 @@ export default function Dashboard() {
                 <s-button
                   variant="secondary"
                   disabled={goingLive || switching}
-                  onClick={() => requestSwitch(alternateMode)}
+                  onClick={() => setTargetMode(alternateMode)}
                 >
                   Switch to {alternateModeLabel}
                 </s-button>
@@ -409,6 +408,7 @@ export default function Dashboard() {
       <s-modal
         id="switch-mode-modal"
         ref={switchModalRef as never}
+        onHide={() => setTargetMode(null)}
         heading={
           targetMode === "ccs-rates"
             ? "Switch to CCS Rates?"

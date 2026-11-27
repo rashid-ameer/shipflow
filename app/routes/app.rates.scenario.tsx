@@ -544,6 +544,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
         </s-stack>
       </s-stack>
       <s-modal
+        id="scenario-entry-modal"
         ref={modal as never}
         heading={
           entry?.type === "rate" ? "Shipping rate" : "Scenario condition"
@@ -588,7 +589,8 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
         <s-button
           slot="secondary-actions"
           variant="secondary"
-          onClick={() => modal.current?.hideOverlay()}
+          commandFor="scenario-entry-modal"
+          command="--hide"
         >
           Cancel
         </s-button>

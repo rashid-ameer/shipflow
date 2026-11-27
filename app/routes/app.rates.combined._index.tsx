@@ -88,6 +88,8 @@ export default function CombinedRatesPage() {
   const [query, setQuery] = useState(search);
   const [checked, setChecked] = useState<string[]>([]);
   const [confirmation, setConfirmation] = useState<string[]>([]);
+  const [deleteError, setDeleteError] = useState<string>();
+  const deleteModal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
   const handled = useRef<typeof fetcher.data>(undefined);
   const busy = fetcher.state !== "idle";
   const selected = checked.filter((id) => rows.some((row) => row.id === id));
@@ -114,7 +116,7 @@ export default function CombinedRatesPage() {
     handled.current = result;
     if (result.ok) {
       setChecked([]);
-      setConfirmation([]);
+      if (result.intent === "delete") deleteModal.current?.hideOverlay();
       shopify.toast.show(
         result.intent === "delete"
           ? "Combined rates deleted"
@@ -122,8 +124,10 @@ export default function CombinedRatesPage() {
             ? "Rule order updated"
             : "Combined rate status updated",
       );
+    } else if (confirmation.length) {
+      setDeleteError(result.error);
     }
-  }, [busy, fetcher.data, shopify]);
+  }, [busy, fetcher.data, shopify, confirmation.length]);
   function submit(intent: string, ids: string[], position?: number) {
     const form = new FormData();
     form.set("intent", intent);
@@ -138,7 +142,7 @@ export default function CombinedRatesPage() {
         Rates
       </s-link>
       <s-stack gap="base">
-        {fetcher.data && !fetcher.data.ok ? (
+        {fetcher.data && !fetcher.data.ok && !deleteError ? (
           <s-banner
             tone="critical"
             heading="Combined rates could not be updated"
@@ -205,7 +209,10 @@ export default function CombinedRatesPage() {
                     disabled={busy}
                     commandFor="delete-combined-rates"
                     command="--show"
-                    onClick={() => setConfirmation(selected)}
+                    onClick={() => {
+                      setDeleteError(undefined);
+                      setConfirmation(selected);
+                    }}
                   >
                     Delete selected
                   </s-button>
@@ -349,11 +356,23 @@ export default function CombinedRatesPage() {
       </s-stack>
       <s-modal
         id="delete-combined-rates"
+        ref={deleteModal}
         heading="Delete selected combined rates?"
+        onHide={() => {
+          setConfirmation([]);
+          setDeleteError(undefined);
+        }}
       >
-        <s-paragraph>
-          Deleting these rules removes their combinations from checkout.
-        </s-paragraph>
+        <s-stack gap="base">
+          {deleteError ? (
+            <s-banner tone="critical" heading="Could not delete combined rates">
+              <s-paragraph>{deleteError}</s-paragraph>
+            </s-banner>
+          ) : null}
+          <s-paragraph>
+            Deleting these rules removes their combinations from checkout.
+          </s-paragraph>
+        </s-stack>
         <s-button
           slot="secondary-actions"
           commandFor="delete-combined-rates"
@@ -365,10 +384,12 @@ export default function CombinedRatesPage() {
           slot="primary-action"
           tone="critical"
           variant="primary"
+          loading={busy}
           disabled={busy || !confirmation.length}
-          commandFor="delete-combined-rates"
-          command="--hide"
-          onClick={() => submit("delete", confirmation)}
+          onClick={() => {
+            setDeleteError(undefined);
+            submit("delete", confirmation);
+          }}
         >
           Delete
         </s-button>

@@ -1,5 +1,4 @@
-import { useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useId, useRef, useState } from "react";
 import { operatorLabels } from "../models/calculated-rates";
 import { dimensionAxes } from "../models/product-dimensions";
 import {
@@ -42,6 +41,7 @@ export function PackagePricingEditor({
     change({ packing: { ...packing, ...patch } });
   }
   const modal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
+  const modalId = `package-editor-${useId()}`;
   const [entry, setEntry] = useState<{
     index: number | null;
     box: PackageDraft;
@@ -50,13 +50,17 @@ export function PackagePricingEditor({
   const [previousPackages, setPreviousPackages] = useState<
     Partial<Record<PackagePricing["method"], PackageDraft[]>>
   >({});
+  const editing = entry !== undefined;
+  useEffect(() => {
+    if (editing) modal.current?.showOverlay();
+  }, [editing]);
+
   function open(index: number | null) {
     setEntry({
       index,
       box: index === null ? emptyPackage : packing.packages[index],
     });
     setError("");
-    modal.current?.showOverlay();
   }
   function save() {
     if (!entry) return;
@@ -343,63 +347,59 @@ export function PackagePricingEditor({
           </s-button>
         </s-stack>
       </s-stack>
-      {typeof document !== "undefined"
-        ? createPortal(
-            <s-modal
-              ref={modal}
-              heading={entry?.index != null ? "Edit package" : "Add package"}
-              onHide={() => setEntry(undefined)}
+      {/* Polaris uses DOM nesting to manage dismissal inside the rate dialog. */}
+      <s-modal
+        id={modalId}
+        ref={modal}
+        heading={entry?.index != null ? "Edit package" : "Add package"}
+        onHide={() => setEntry(undefined)}
+      >
+        {entry ? (
+          <s-stack gap="base">
+            {error ? <s-banner tone="critical">{error}</s-banner> : null}
+            <s-text-field
+              required
+              label="Package name"
+              maxLength={120}
+              value={entry.box.name}
+              onInput={(event) => patch("name", event.currentTarget.value)}
+            />
+            <s-grid
+              gap="small"
+              gridTemplateColumns="repeat(auto-fit,minmax(min(100%,150px),1fr))"
             >
-              {entry ? (
-                <s-stack gap="base">
-                  {error ? <s-banner tone="critical">{error}</s-banner> : null}
-                  <s-text-field
-                    required
-                    label="Package name"
-                    maxLength={120}
-                    value={entry.box.name}
-                    onInput={(event) =>
-                      patch("name", event.currentTarget.value)
-                    }
-                  />
-                  <s-grid
-                    gap="small"
-                    gridTemplateColumns="repeat(auto-fit,minmax(min(100%,150px),1fr))"
-                  >
-                    {fields.map(({ key, label, optional }) => (
-                      <s-number-field
-                        key={key}
-                        label={label}
-                        required={!optional}
-                        min={0}
-                        inputMode="decimal"
-                        value={entry.box[key]}
-                        onInput={(event) =>
-                          patch(key, event.currentTarget.value)
-                        }
-                      />
-                    ))}
-                  </s-grid>
-                </s-stack>
-              ) : null}
-              <s-button
-                slot="secondary-actions"
-                onClick={() => modal.current?.hideOverlay()}
-              >
-                Cancel
-              </s-button>
-              <s-button
-                slot="primary-action"
-                variant="primary"
-                disabled={!entry}
-                onClick={save}
-              >
-                {entry?.index != null ? "Save package" : "Add package"}
-              </s-button>
-            </s-modal>,
-            document.body,
-          )
-        : null}
+              {fields.map(({ key, label, optional }) => (
+                <s-number-field
+                  key={key}
+                  label={label}
+                  required={!optional}
+                  min={0}
+                  inputMode="decimal"
+                  value={entry.box[key]}
+                  onInput={(event) =>
+                    patch(key, event.currentTarget.value)
+                  }
+                />
+              ))}
+            </s-grid>
+          </s-stack>
+        ) : null}
+        <s-button
+          slot="secondary-actions"
+          commandFor={modalId}
+          command="--hide"
+        >
+          Cancel
+        </s-button>
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          disabled={!entry}
+          onClick={save}
+        >
+          {entry?.index != null ? "Save package" : "Add package"}
+        </s-button>
+      </s-modal>
     </s-stack>
   );
 }
