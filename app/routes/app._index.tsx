@@ -14,6 +14,7 @@ import {
 import { MarketsDashboard } from "../components/markets-dashboard";
 import prisma from "../db.server";
 import { ratesPaths } from "../models/calculated-rates";
+import { diagnosticsPaths } from "../models/checkout-history";
 import { getCarrierSetup } from "../models/carrier-shopify.server";
 import { getMarketsDashboardData } from "../models/market-readiness.server";
 import { deliveryPaths } from "../models/delivery-customization";
@@ -87,6 +88,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ? ("ccs-rates" as const)
         : ("delivery-customization" as const),
     testMode: store.testMode,
+    setupChecklistDismissed: store.setupChecklistDismissed,
+    storefrontUrl: `https://${session.shop}`,
     appEnabled: store.appEnabled,
     ccsNeedsAttention: !rates?.setup.connected,
     markets,
@@ -99,6 +102,24 @@ export async function action({ request }: ActionFunctionArgs) {
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
+  if (intent === "dismiss-setup-checklist") {
+    try {
+      await prisma.store.update({
+        where: { shopDomain: session.shop },
+        data: { setupChecklistDismissed: true },
+      });
+      return { ok: true as const, intent, error: null };
+    } catch {
+      return data(
+        {
+          ok: false as const,
+          intent,
+          error: "Could not dismiss the setup checklist. Try again.",
+        },
+        { status: 500 },
+      );
+    }
+  }
   if (intent === "go-live") {
     try {
       await setTestMode(session.shop, false);
@@ -163,6 +184,7 @@ export default function Dashboard() {
   const shopify = useAppBridge();
   const switcher = useFetcher<typeof action>();
   const goLiveFetcher = useFetcher<typeof action>();
+  const checklistFetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
   const switchModalRef = useRef<HTMLElementTagNameMap["s-modal"] | null>(null);
   const goLiveModalRef = useRef<HTMLElementTagNameMap["s-modal"] | null>(null);
@@ -176,6 +198,10 @@ export default function Dashboard() {
   const refreshingMarkets = revalidator.state !== "idle";
   const readyMarketCount =
     dashboard.markets.status === "available" ? dashboard.markets.readyCount : 0;
+  const showChecklist =
+    !dashboard.setupChecklistDismissed &&
+    !checklistFetcher.data?.ok &&
+    checklistFetcher.state === "idle";
 
   useEffect(() => {
     setTestBannerHidden(false);
@@ -292,47 +318,19 @@ export default function Dashboard() {
           </s-banner>
         ) : null}
 
-        <BorderedCard heading="Setup checklist" id="setup-checklist">
-          <s-stack direction="block" gap="base">
-            {isCcs ? (
-              <>
-                <ChecklistItem
-                  label="Verify Carrier Calculated Shipping"
-                  done={!dashboard.ccsNeedsAttention}
-                />
-                <ChecklistItem
-                  label="Add ShipFlow to Shopify shipping"
-                  done={
-                    dashboard.markets.status === "available" &&
-                    dashboard.markets.marketDrivenShipping
-                      ? readyMarketCount > 0
-                      : Boolean(dashboard.rates?.setup.profileAttached)
-                  }
-                  href={ratesPaths.hub}
-                />
-                <ChecklistItem
-                  label="Create a scenario"
-                  done={Boolean(dashboard.rates?.scenarios)}
-                  href={ratesPaths.scenario("new")}
-                />
-                <ChecklistItem
-                  label="Test in checkout"
-                  done={Boolean(dashboard.rates?.tests)}
-                  href={ratesPaths.hub}
-                />
-              </>
-            ) : (
-              <>
-                <ChecklistItem
-                  label="Create a customization"
-                  done={Boolean(dashboard.delivery?.total)}
-                  href={deliveryPaths.create}
-                />
-                <ChecklistItem label="Test in checkout" done={false} />
-              </>
-            )}
-          </s-stack>
-        </BorderedCard>
+        {showChecklist ? (
+          <SetupChecklist
+            key={dashboard.mode}
+            steps={checklistSteps(dashboard, readyMarketCount)}
+            error={checklistFetcher.data?.error}
+            dismiss={() =>
+              checklistFetcher.submit(
+                { intent: "dismiss-setup-checklist" },
+                { method: "post" },
+              )
+            }
+          />
+        ) : null}
 
         {dashboard.delivery ? (
           <BorderedCard heading="Delivery customizations">
@@ -480,26 +478,224 @@ export default function Dashboard() {
   );
 }
 
-function ChecklistItem({
-  label,
-  done,
-  href,
-}: {
+type ChecklistStep = {
+  id: string;
   label: string;
+  description: string;
   done: boolean;
-  href?: string;
+  action: string;
+  href: string;
+  external?: boolean;
+};
+
+function checklistSteps(
+  dashboard: Awaited<ReturnType<typeof loader>>,
+  readyMarketCount: number,
+): ChecklistStep[] {
+  if (dashboard.mode === "delivery-customization") {
+    return [
+      {
+        id: "create-customization",
+        label: "Create a customization",
+        description:
+          "Set conditions and choose how matching shipping options should appear at checkout.",
+        done: Boolean(dashboard.delivery?.total),
+        action: "Create customization",
+        href: deliveryPaths.create,
+      },
+      {
+        id: "activate-customization",
+        label: "Activate a customization",
+        description:
+          "Activate a rule, then use a storefront checkout to verify the shipping options it changes.",
+        done: Boolean(dashboard.delivery?.active),
+        action: "Manage customizations",
+        href: deliveryPaths.list,
+      },
+    ];
+  }
+
+  const tested = Boolean(dashboard.rates?.tests);
+  const openStorefront = !tested && dashboard.testMode;
+  return [
+    {
+      id: "verify-ccs",
+      label: "Verify Carrier Calculated Shipping",
+      description:
+        "Connect ShipFlow’s Carrier Service so Shopify can request shipping rates at checkout.",
+      done: !dashboard.ccsNeedsAttention,
+      action: "Open shipping setup",
+      href: ratesPaths.hub,
+    },
+    {
+      id: "add-to-shopify",
+      label: "Add ShipFlow to Shopify shipping",
+      description:
+        "Select ShipFlow as a carrier-calculated rate provider for a destination you serve.",
+      done:
+        dashboard.markets.status === "available" &&
+        dashboard.markets.marketDrivenShipping
+          ? readyMarketCount > 0
+          : Boolean(dashboard.rates?.setup.profileAttached),
+      action: "Manage shipping setup",
+      href: ratesPaths.hub,
+    },
+    {
+      id: "create-scenario",
+      label: "Create a scenario",
+      description:
+        "Choose the destinations and conditions for a shipping rate, then save your scenario.",
+      done: Boolean(dashboard.rates?.scenarios),
+      action: "Create scenario",
+      href: ratesPaths.scenario("new"),
+    },
+    {
+      id: "test-checkout",
+      label: "Test in checkout",
+      description: dashboard.testMode
+        ? "Start a storefront checkout with a matching cart and use shipflow as the customer’s first name."
+        : "Review recorded test requests in Checkout history.",
+      done: tested,
+      action: openStorefront ? "Open storefront" : "View checkout history",
+      href: openStorefront ? dashboard.storefrontUrl : diagnosticsPaths.history,
+      external: openStorefront,
+    },
+  ];
+}
+
+function SetupChecklist({
+  steps,
+  error,
+  dismiss,
+}: {
+  steps: ChecklistStep[];
+  error?: string | null;
+  dismiss: () => void;
 }) {
+  const completed = steps.filter((step) => step.done).length;
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>(
+    () => {
+      const nextStep = steps.find((step) => !step.done);
+      return nextStep ? { [nextStep.id]: true } : {};
+    },
+  );
   return (
-    <s-grid gridTemplateColumns="auto 1fr" gap="small-200" alignItems="center">
-      <s-badge tone={done ? "success" : "neutral"}>
-        {done ? "Done" : "Next"}
-      </s-badge>
-      {href && !done ? (
-        <s-link href={href}>{label}</s-link>
-      ) : (
-        <s-text>{label}</s-text>
-      )}
-    </s-grid>
+    <s-box
+      id="setup-checklist"
+      accessibilityRole="section"
+      accessibilityLabel="Setup checklist"
+      background="base"
+      border="base base solid"
+      borderRadius="base"
+      padding="base"
+    >
+      <s-stack gap="base">
+        <s-grid gridTemplateColumns="1fr auto" alignItems="center" gap="small">
+          <s-heading>Setup checklist</s-heading>
+          <s-stack direction="inline" gap="small-200">
+            <s-button
+              variant="tertiary"
+              icon="x"
+              accessibilityLabel="Dismiss setup checklist"
+              onClick={dismiss}
+            />
+            <s-button
+              variant="tertiary"
+              icon={panelOpen ? "chevron-up" : "chevron-down"}
+              accessibilityLabel={
+                panelOpen ? "Collapse setup checklist" : "Expand setup checklist"
+              }
+              aria-expanded={panelOpen}
+              aria-controls="setup-steps"
+              onClick={() => setPanelOpen((open) => !open)}
+            />
+          </s-stack>
+        </s-grid>
+        <s-text color="subdued">
+          {completed} of {steps.length} steps completed
+        </s-text>
+        {error ? <s-banner tone="critical" heading={error} /> : null}
+        {panelOpen ? (
+          <s-box id="setup-steps" border="base base solid" borderRadius="base">
+            <s-stack>
+              {steps.map((step, index) => {
+                const expanded = Boolean(expandedSteps[step.id]);
+                const contentId = `setup-step-${step.id}`;
+                const toggleStep = () =>
+                  setExpandedSteps((current) => ({
+                    ...current,
+                    [step.id]: !current[step.id],
+                  }));
+                return (
+                  <s-box key={step.id}>
+                    {index > 0 ? <s-divider /> : null}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      style={{ cursor: "pointer" }}
+                      aria-label={`${expanded ? "Collapse" : "Expand"} ${step.label}, ${step.done ? "done" : "not done"}`}
+                      aria-expanded={expanded}
+                      aria-controls={contentId}
+                      onClick={toggleStep}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          if (!event.repeat) toggleStep();
+                        }
+                      }}
+                    >
+                      <s-box padding="small">
+                        <s-grid
+                          gridTemplateColumns="auto minmax(0, 1fr) auto"
+                          alignItems="center"
+                          gap="small"
+                        >
+                          <div inert aria-hidden="true">
+                            <s-checkbox
+                              checked={step.done}
+                              accessibilityLabel={step.done ? "Done" : "Not done"}
+                            />
+                          </div>
+                          <s-text type="strong">{step.label}</s-text>
+                          <s-icon
+                            type={expanded ? "chevron-up" : "chevron-down"}
+                            tone="neutral"
+                          />
+                        </s-grid>
+                      </s-box>
+                    </div>
+                    {expanded ? (
+                      <s-box id={contentId} padding="small" paddingBlockStart="none">
+                        <s-box
+                          background="subdued"
+                          borderRadius="base"
+                          padding="base"
+                        >
+                          <s-stack gap="small">
+                            <s-paragraph>{step.description}</s-paragraph>
+                            <s-stack direction="inline">
+                              <s-button
+                                variant="primary"
+                                disabled={step.done}
+                                href={step.done ? undefined : step.href}
+                                target={step.external ? "_blank" : undefined}
+                              >
+                                {step.action}
+                              </s-button>
+                            </s-stack>
+                          </s-stack>
+                        </s-box>
+                      </s-box>
+                    ) : null}
+                  </s-box>
+                );
+              })}
+            </s-stack>
+          </s-box>
+        ) : null}
+      </s-stack>
+    </s-box>
   );
 }
 

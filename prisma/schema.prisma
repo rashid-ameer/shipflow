@@ -58,6 +58,7 @@ model Store {
   mode              OperatingMode?
   appEnabled        Boolean        @default(true)
   testMode          Boolean        @default(true)
+  setupChecklistDismissed Boolean  @default(false)
   ccsStatus         CcsStatus      @default(UNKNOWN)
   ccsModeSelectedAt DateTime?
   onboardedAt       DateTime?

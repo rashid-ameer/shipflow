@@ -1,5 +1,5 @@
 import { BorderedCard } from "../components/bordered-card";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   useLoaderData,
@@ -191,7 +191,6 @@ function HistoryList({
   const [, setParams] = useSearchParams();
   const [query, setQuery] = useState(history.search);
   const [draftRange, setDraftRange] = useState<string>();
-  const datePopover = useRef<HTMLElementTagNameMap["s-popover"]>(null);
   const [from, to = ""] =
     draftRange === undefined
       ? [history.from, history.to]
@@ -241,27 +240,27 @@ function HistoryList({
             {rangeLabel || "Date range"}
           </s-button>
         </s-stack>
-        <s-popover id="history-date-range" ref={datePopover} inlineSize="300px">
+        <s-popover id="history-date-range" inlineSize="300px">
           <s-box padding="small">
-            <s-date-picker
-              type="range"
-              allow={`${history.min}--${history.max}`}
-              defaultView={(history.from || history.to || history.max).slice(
-                0,
-                7,
-              )}
-              value={
-                draftRange ?? (from || to ? `${rangeStart}--${rangeEnd}` : "")
-              }
-              onInput={(event) => setDraftRange(event.currentTarget.value)}
-              onChange={() =>
-                (
-                  datePopover.current as unknown as {
-                    hideOverlay(): void;
-                  } | null
-                )?.hideOverlay()
-              }
-            />
+            <s-stack gap="small">
+              <s-date-picker
+                type="range"
+                allow={`${history.min}--${history.max}`}
+                defaultView={(history.from || history.to || history.max).slice(
+                  0,
+                  7,
+                )}
+                value={
+                  draftRange ?? (from || to ? `${rangeStart}--${rangeEnd}` : "")
+                }
+                onInput={(event) => setDraftRange(event.currentTarget.value)}
+              />
+              <s-stack direction="inline" justifyContent="end">
+                <s-button commandFor="history-date-range" command="--hide">
+                  Done
+                </s-button>
+              </s-stack>
+            </s-stack>
           </s-box>
         </s-popover>
         {invalidDates ? (
