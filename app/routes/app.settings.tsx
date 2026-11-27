@@ -670,7 +670,7 @@ function SettingsForm({
               Only the current mode runs at checkout. Settings and rules in the
               other mode remain saved.
             </s-paragraph>
-            <s-stack direction="inline" justifyContent="end">
+            <s-stack direction="inline" justifyContent="start">
               <s-button
                 variant="secondary"
                 disabled={saving || switching}

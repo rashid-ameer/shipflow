@@ -117,7 +117,20 @@ export function SettingsPageLayout({
   current?: SettingsTab;
   children: ReactNode;
 }) {
-  if (!current) return <>{children}</>;
+  const panel = (
+    <s-box
+      background="base"
+      border="base base solid"
+      borderRadius="base"
+      padding="large"
+    >
+      <s-stack direction="block" gap="base">
+        {children}
+      </s-stack>
+    </s-box>
+  );
+
+  if (!current) return panel;
   return (
     <>
       <style>{`
@@ -136,16 +149,7 @@ export function SettingsPageLayout({
       `}</style>
       <div className="sf-settings-layout">
         <SettingsTabs current={current} />
-        <s-box
-          background="base"
-          border="base base solid"
-          borderRadius="base"
-          padding="large"
-        >
-          <s-stack direction="block" gap="base">
-            {children}
-          </s-stack>
-        </s-box>
+        {panel}
       </div>
     </>
   );

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
+import { SettingsPageLayout } from "../app/components/checkout-settings-panels";
 import {
   parseBasicSettingsFormData,
   parseDeliverySettingsFormData,
@@ -109,5 +112,16 @@ if (deliveryParsed.ok) {
     weightUnit: "oz",
   });
 }
+
+const settingsMarkup = renderToStaticMarkup(
+  createElement(SettingsPageLayout, {
+    children: createElement("s-paragraph", null, "Delivery settings"),
+  }),
+);
+assert.match(settingsMarkup, /background="base"/);
+assert.match(settingsMarkup, /border="base base solid"/);
+assert.match(settingsMarkup, /padding="large"/);
+assert.match(settingsMarkup, /gap="base"/);
+assert.match(settingsMarkup, /Delivery settings/);
 
 console.log("M2 settings validation and dirty-state checks passed.");
