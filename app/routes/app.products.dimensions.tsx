@@ -257,18 +257,6 @@ function DimensionsEditor({
       <s-link href={productsPath} slot="breadcrumb-actions" onClick={back}>
         Products
       </s-link>
-      <s-button slot="secondary-actions" href={productsPath} onClick={back}>
-        Back
-      </s-button>
-      <s-button
-        slot="primary-action"
-        variant="primary"
-        disabled={!dirty || busy || unitChanged}
-        loading={busy}
-        onClick={save}
-      >
-        Save
-      </s-button>
       <ui-save-bar id={saveBar}>
         <button
           type="button"
@@ -352,6 +340,19 @@ function DimensionsEditor({
             ))}
           </s-table-body>
         </IndexTableSection>
+        <s-stack direction="inline" justifyContent="end" gap="small">
+          <s-button href={productsPath} onClick={back}>
+            Back
+          </s-button>
+          <s-button
+            variant="primary"
+            disabled={!dirty || busy || unitChanged}
+            loading={busy}
+            onClick={save}
+          >
+            Save
+          </s-button>
+        </s-stack>
       </s-stack>
     </s-page>
   );

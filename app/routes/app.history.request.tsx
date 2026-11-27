@@ -52,6 +52,33 @@ export default function CheckoutHistoryRequestPage() {
       <s-link slot="breadcrumb-actions" href={diagnosticsPaths.history}>
         History
       </s-link>
+      {entry.found ? (
+        <>
+          <s-button
+            slot="secondary-actions"
+            href={diagnosticsPaths.simulator}
+          >
+            Open simulator
+          </s-button>
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(entry.id);
+                shopify.toast.show("History ID copied");
+              } catch {
+                shopify.toast.show(
+                  "Copy the History ID from the request details.",
+                  { isError: true },
+                );
+              }
+            }}
+          >
+            Copy History ID
+          </s-button>
+        </>
+      ) : null}
       {!entry.found ? (
         <s-banner tone="info" heading="Request unavailable">
           <s-paragraph>
@@ -97,27 +124,6 @@ export default function CheckoutHistoryRequestPage() {
             trace={entry.trace}
             rateCount={entry.rateCount}
           />
-          <s-stack direction="inline" justifyContent="end" gap="small">
-            <s-button href={diagnosticsPaths.simulator}>
-              Open simulator
-            </s-button>
-            <s-button
-              variant="primary"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(entry.id);
-                  shopify.toast.show("History ID copied");
-                } catch {
-                  shopify.toast.show(
-                    "Copy the History ID from the request details.",
-                    { isError: true },
-                  );
-                }
-              }}
-            >
-              Copy History ID
-            </s-button>
-          </s-stack>
         </s-stack>
       )}
     </s-page>

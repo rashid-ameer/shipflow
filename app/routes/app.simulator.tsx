@@ -415,7 +415,20 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
   }
 
   return (
-    <s-stack gap="base">
+    <>
+      <s-button slot="secondary-actions" href={diagnosticsPaths.history}>
+        View checkout history
+      </s-button>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        disabled={!valid || busy || picking}
+        loading={busy}
+        onClick={simulate}
+      >
+        Run simulation
+      </s-button>
+      <s-stack gap="base">
       {!initial.connected ? (
         <s-banner
           tone="info"
@@ -795,19 +808,6 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
           <s-paragraph>{run.data.message}</s-paragraph>
         </s-banner>
       ) : null}
-      <s-stack gap="small" direction="inline" justifyContent="end">
-        <s-button href={diagnosticsPaths.history}>
-          View checkout history
-        </s-button>
-        <s-button
-          variant="primary"
-          disabled={!valid || busy || picking}
-          loading={busy}
-          onClick={simulate}
-        >
-          Run simulation
-        </s-button>
-      </s-stack>
       {result ? (
         <>
           <CheckoutPricingResults
@@ -822,6 +822,7 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
         Simulator runs stay here. Use a real checkout to test Delivery
         Customization and check the request in History.
       </s-paragraph>
-    </s-stack>
+      </s-stack>
+    </>
   );
 }

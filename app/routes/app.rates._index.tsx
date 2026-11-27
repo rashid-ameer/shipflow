@@ -70,11 +70,13 @@ export default function RatesHub() {
       : state.profileAttached);
   return (
     <s-page heading="Rates">
+      <s-button slot="secondary-actions" href={diagnosticsPaths.simulator}>
+        Open simulator
+      </s-button>
+      <s-button slot="secondary-actions" href={diagnosticsPaths.history}>
+        View history
+      </s-button>
       <s-stack gap="base">
-        <s-stack direction="inline" justifyContent="end" gap="small">
-          <s-button href={diagnosticsPaths.simulator}>Open simulator</s-button>
-          <s-button href={diagnosticsPaths.history}>View history</s-button>
-        </s-stack>
         {connect.data && !connect.data.ok ? (
           <s-banner
             tone="critical"
@@ -147,22 +149,14 @@ export default function RatesHub() {
               {state.scenarios} saved. Use conditions and regions to decide when
               a shipping rate appears.
             </s-paragraph>
-            <s-stack direction="inline" justifyContent="end">
-              <s-button variant="primary" href={ratesPaths.scenarios}>
-                View
-              </s-button>
-            </s-stack>
+            <s-link href={ratesPaths.scenarios}>View scenarios</s-link>
           </BorderedCard>
           <BorderedCard heading="Combined shipping rates">
             <s-paragraph>
               Use shipping tags to merge matching scenario rates into one
               checkout option.
             </s-paragraph>
-            <s-stack direction="inline" justifyContent="end">
-              <s-button variant="primary" href={combinedPaths.list}>
-                View
-              </s-button>
-            </s-stack>
+            <s-link href={combinedPaths.list}>View combined rates</s-link>
           </BorderedCard>
         </s-grid>
       </s-stack>
