@@ -361,7 +361,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
             {draft.conditions.map((value, index) => (
               <s-stack key={index} gap="small-200">
                 {index > 0 ? (
-                  <s-stack direction="inline">
+                  <s-stack direction="inline" justifyContent="center">
                     <s-badge>AND</s-badge>
                   </s-stack>
                 ) : null}
@@ -381,15 +381,18 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
                     <s-stack direction="inline" gap="small">
                       <s-button
                         variant="tertiary"
+                        icon="edit"
+                        accessibilityLabel={`Edit condition ${index + 1}`}
                         disabled={locked || open}
                         onClick={() =>
                           editEntry({ type: "condition", index, value })
                         }
-                      >
-                        Edit
-                      </s-button>
+                      />
                       <s-button
                         variant="tertiary"
+                        tone="critical"
+                        icon="delete"
+                        accessibilityLabel={`Remove condition ${index + 1}`}
                         disabled={locked}
                         onClick={() =>
                           setDraft({
@@ -399,9 +402,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
                             ),
                           })
                         }
-                      >
-                        Remove
-                      </s-button>
+                      />
                     </s-stack>
                   </s-stack>
                 </s-box>
@@ -470,13 +471,16 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
                           <s-stack direction="inline" gap="small">
                             <s-button
                               variant="tertiary"
+                              icon="edit"
+                              accessibilityLabel={`Edit rate ${value.name}`}
                               disabled={locked || open}
                               onClick={() => editEntry({ type: "rate", value })}
-                            >
-                              Edit
-                            </s-button>
+                            />
                             <s-button
                               variant="tertiary"
+                              tone="critical"
+                              icon="delete"
+                              accessibilityLabel={`Remove rate ${value.name}`}
                               disabled={locked}
                               onClick={() =>
                                 setDraft({
@@ -486,9 +490,7 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
                                   ),
                                 })
                               }
-                            >
-                              Remove
-                            </s-button>
+                            />
                           </s-stack>
                         </s-stack>
                       ))

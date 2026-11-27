@@ -417,26 +417,32 @@ function Editor({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
                 : "With no conditions, the IF actions run for every checkout."}
             </s-paragraph>
             {draft.conditions.map((item, index) => (
-              <EntryRow
-                key={index}
-                label={conditionSummary(item)}
-                index={index}
-                count={draft.conditions.length}
-                disabled={disabled}
-                onEdit={() => open({ kind: "condition", index, value: item })}
-                onRemove={() =>
-                  setDraft({
-                    ...draft,
-                    conditions: remove(draft.conditions, index),
-                  })
-                }
-                onMove={(step) =>
-                  setDraft({
-                    ...draft,
-                    conditions: move(draft.conditions, index, step),
-                  })
-                }
-              />
+              <s-stack key={index} gap="small-200">
+                {index > 0 ? (
+                  <s-stack direction="inline" justifyContent="center">
+                    <s-badge>AND</s-badge>
+                  </s-stack>
+                ) : null}
+                <EntryRow
+                  label={conditionSummary(item)}
+                  index={index}
+                  count={draft.conditions.length}
+                  disabled={disabled}
+                  onEdit={() => open({ kind: "condition", index, value: item })}
+                  onRemove={() =>
+                    setDraft({
+                      ...draft,
+                      conditions: remove(draft.conditions, index),
+                    })
+                  }
+                  onMove={(step) =>
+                    setDraft({
+                      ...draft,
+                      conditions: move(draft.conditions, index, step),
+                    })
+                  }
+                />
+              </s-stack>
             ))}
             <s-stack direction="inline" justifyContent="end">
               <s-button
@@ -910,12 +916,21 @@ function EntryRow({
               />
             </>
           ) : null}
-          <s-button disabled={disabled} onClick={onEdit}>
-            Edit
-          </s-button>
-          <s-button disabled={disabled} onClick={onRemove}>
-            Remove
-          </s-button>
+          <s-button
+            variant="tertiary"
+            icon="edit"
+            accessibilityLabel={`Edit ${label}`}
+            disabled={disabled}
+            onClick={onEdit}
+          />
+          <s-button
+            variant="tertiary"
+            tone="critical"
+            icon="delete"
+            accessibilityLabel={`Remove ${label}`}
+            disabled={disabled}
+            onClick={onRemove}
+          />
         </s-stack>
       </s-stack>
     </s-box>
