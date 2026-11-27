@@ -1,4 +1,4 @@
-import { BorderedCard } from "./bordered-card";
+import { IndexTableSection } from "./index-table";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -52,92 +52,100 @@ export function RegionsManager({ regions }: { regions: Regions }) {
     );
   }, [fetcher.data, busy, shopify]);
 
+  function startCreate() {
+    setError(undefined);
+    edit({
+      id: "",
+      name: "",
+      coverage: [{ country: "", provinces: "" }],
+    });
+  }
+
   return (
     <>
-      <BorderedCard heading="Regions">
-        <s-stack gap="base">
+      <IndexTableSection label="Regions">
+        <s-table-header-row>
+          <s-table-header listSlot="primary">Region</s-table-header>
+          <s-table-header listSlot="labeled">Coverage</s-table-header>
+          <s-table-header listSlot="labeled">Rates</s-table-header>
+          <s-table-header>Actions</s-table-header>
+        </s-table-header-row>
+        <s-table-body>
+          {regions.map((region) => (
+            <s-table-row key={region.id}>
+              <s-table-cell>{region.name}</s-table-cell>
+              <s-table-cell>
+                {region.kind === "REST"
+                  ? "Destinations outside named regions"
+                  : region.coverage.map(coverageLabel).join(" · ")}
+              </s-table-cell>
+              <s-table-cell>{region.rateCount}</s-table-cell>
+              <s-table-cell>
+                {region.kind !== "REST" ? (
+                  <s-stack direction="inline" gap="small">
+                    <s-button
+                      variant="tertiary"
+                      disabled={busy || editing || deleting}
+                      onClick={() => {
+                        setError(undefined);
+                        edit({
+                          id: region.id,
+                          name: region.name,
+                          coverage: region.coverage.map((row) => ({
+                            country: row.country,
+                            provinces: row.provinces.join(", "),
+                          })),
+                        });
+                      }}
+                    >
+                      Edit
+                    </s-button>
+                    <s-button
+                      variant="tertiary"
+                      disabled={!canDelete || busy || editing || deleting}
+                      onClick={() => {
+                        setError(undefined);
+                        confirm(region);
+                      }}
+                    >
+                      Delete
+                    </s-button>
+                  </s-stack>
+                ) : null}
+              </s-table-cell>
+            </s-table-row>
+          ))}
           {regions.length === 0 ? (
-            <s-paragraph>
-              Choose the countries ShipFlow should serve. Add your first region
-              to get started.
-            </s-paragraph>
-          ) : (
-            <s-table>
-              <s-table-header-row>
-                <s-table-header listSlot="primary">Region</s-table-header>
-                <s-table-header listSlot="labeled">Coverage</s-table-header>
-                <s-table-header listSlot="labeled">Rates</s-table-header>
-                <s-table-header>Actions</s-table-header>
-              </s-table-header-row>
-              <s-table-body>
-                {regions.map((region) => (
-                  <s-table-row key={region.id}>
-                    <s-table-cell>{region.name}</s-table-cell>
-                    <s-table-cell>
-                      {region.kind === "REST"
-                        ? "Destinations outside named regions"
-                        : region.coverage.map(coverageLabel).join(" · ")}
-                    </s-table-cell>
-                    <s-table-cell>{region.rateCount}</s-table-cell>
-                    <s-table-cell>
-                      {region.kind !== "REST" ? (
-                        <s-stack direction="inline" gap="small">
-                          <s-button
-                            variant="tertiary"
-                            disabled={busy || editing || deleting}
-                            onClick={() => {
-                              setError(undefined);
-                              edit({
-                                id: region.id,
-                                name: region.name,
-                                coverage: region.coverage.map((row) => ({
-                                  country: row.country,
-                                  provinces: row.provinces.join(", "),
-                                })),
-                              });
-                            }}
-                          >
-                            Edit
-                          </s-button>
-                          <s-button
-                            variant="tertiary"
-                            disabled={!canDelete || busy || editing || deleting}
-                            onClick={() => {
-                              setError(undefined);
-                              confirm(region);
-                            }}
-                          >
-                            Delete
-                          </s-button>
-                        </s-stack>
-                      ) : null}
-                    </s-table-cell>
-                  </s-table-row>
-                ))}
-              </s-table-body>
-            </s-table>
-          )}
-          {regions.length > 0 && !canDelete ? (
-            <s-paragraph>Keep at least one named region.</s-paragraph>
+            <s-empty-state heading="Add your first region">
+              <s-text slot="subheading">
+                Choose the countries ShipFlow should serve.
+              </s-text>
+              <s-button
+                slot="primary-action"
+                variant="primary"
+                disabled={busy || editing || deleting}
+                onClick={startCreate}
+              >
+                Create region
+              </s-button>
+            </s-empty-state>
           ) : null}
-          <s-stack direction="inline" justifyContent="end">
-            <s-button
-              variant="primary"
-              disabled={busy || editing || deleting}
-              onClick={() => {
-                setError(undefined);
-                edit({
-                  id: "",
-                  name: "",
-                  coverage: [{ country: "", provinces: "" }],
-                });
-              }}
-            >
-              Create region
-            </s-button>
-          </s-stack>
+        </s-table-body>
+      </IndexTableSection>
+      {regions.length > 0 && !canDelete ? (
+        <s-paragraph>Keep at least one named region.</s-paragraph>
+      ) : null}
+      {regions.length > 0 ? (
+        <s-stack direction="inline" justifyContent="end">
+          <s-button
+            variant="primary"
+            disabled={busy || editing || deleting}
+            onClick={startCreate}
+          >
+            Create region
+          </s-button>
         </s-stack>
-      </BorderedCard>
+      ) : null}
       <s-modal
         id="region-editor-modal"
         ref={editor as never}

@@ -1,4 +1,9 @@
-import { BorderedCard } from "../components/bordered-card";
+import {
+  IndexTableBulkActions,
+  IndexTableFilterChips,
+  IndexTableFilters,
+  IndexTableSection,
+} from "../components/index-table";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -133,201 +138,215 @@ export default function ScenariosPage() {
             </s-paragraph>
           </s-banner>
         ) : null}
-        <BorderedCard
-          heading={
-            total === 0 ? "Create your first scenario" : "Saved scenarios"
-          }
+        <IndexTableSection
+          label="Saved scenarios"
+          loading={busy}
+          paginate={pageCount > 1}
+          hasPreviousPage={page > 1}
+          hasNextPage={page < pageCount}
+          onPreviousPage={() => {
+            setSelected([]);
+            setParams(lookup(search, status, page - 1));
+          }}
+          onNextPage={() => {
+            setSelected([]);
+            setParams(lookup(search, status, page + 1));
+          }}
         >
-          <s-stack gap="base">
-            {total === 0 ? (
-              <s-paragraph>
-                Add a shipping rate and the conditions under which it should
-                appear.
-              </s-paragraph>
-            ) : (
-              <>
-                <s-grid
-                  gridTemplateColumns="minmax(0, 2fr) minmax(0, 1fr)"
-                  gap="base"
+          {selection.length > 0 ? (
+            <IndexTableBulkActions count={selection.length} total={rows.length}>
+              <s-button
+                variant="secondary"
+                disabled={busy || !connected}
+                onClick={() => submit("activate")}
+              >
+                Set active
+              </s-button>
+              <s-button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => submit("deactivate")}
+              >
+                Set inactive
+              </s-button>
+              <s-button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => modal.current?.showOverlay()}
+              >
+                Delete selected
+              </s-button>
+            </IndexTableBulkActions>
+          ) : total > 0 ? (
+            <>
+              <IndexTableFilters columns="minmax(0, 2fr) minmax(0, 1fr)">
+                <s-search-field
+                  label="Search scenarios"
+                  value={query}
+                  maxLength={120}
+                  onInput={(event) => setQuery(event.currentTarget.value)}
+                />
+                <s-select
+                  label="Status"
+                  value={status}
+                  onChange={(event) => {
+                    setSelected([]);
+                    setParams(lookup(query, event.currentTarget.value));
+                  }}
                 >
-                  <s-search-field
-                    label="Search scenarios"
-                    value={query}
-                    maxLength={120}
-                    onInput={(event) => setQuery(event.currentTarget.value)}
-                  />
-                  <s-select
-                    label="Status"
-                    value={status}
+                  <s-option value="all">All</s-option>
+                  <s-option value="active">Active</s-option>
+                  <s-option value="inactive">Inactive</s-option>
+                </s-select>
+              </IndexTableFilters>
+              <IndexTableFilterChips
+                filters={[
+                  ...(search
+                    ? [
+                        {
+                          label: `Search: ${search}`,
+                          onRemove: () => {
+                            setQuery("");
+                            setSelected([]);
+                            setParams(lookup("", status));
+                          },
+                        },
+                      ]
+                    : []),
+                  ...(status !== "all"
+                    ? [
+                        {
+                          label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
+                          onRemove: () => {
+                            setSelected([]);
+                            setParams(lookup(search, "all"));
+                          },
+                        },
+                      ]
+                    : []),
+                ]}
+                onClearAll={() => {
+                  setQuery("");
+                  setSelected([]);
+                  setParams({});
+                }}
+              />
+            </>
+          ) : null}
+          <s-table-header-row>
+            <s-table-header>
+              <s-checkbox
+                accessibilityLabel="Select all scenarios"
+                checked={allSelected}
+                onChange={(event) =>
+                  setSelected(
+                    event.currentTarget.checked
+                      ? rows.map(({ id }) => id)
+                      : [],
+                  )
+                }
+              />
+            </s-table-header>
+            <s-table-header listSlot="primary">Name</s-table-header>
+            <s-table-header listSlot="inline">Status</s-table-header>
+            <s-table-header listSlot="labeled">Rates</s-table-header>
+            <s-table-header listSlot="labeled">Updated</s-table-header>
+          </s-table-header-row>
+          <s-table-body>
+            {rows.map((row) => (
+              <s-table-row
+                key={row.id}
+                clickDelegate={`scenario-${row.id}`}
+              >
+                <s-table-cell>
+                  <s-checkbox
+                    accessibilityLabel={`Select ${row.name}`}
+                    checked={selection.includes(row.id)}
+                    disabled={busy}
                     onChange={(event) => {
-                      setSelected([]);
-                      setParams(lookup(query, event.currentTarget.value));
+                      const checked = event.currentTarget.checked;
+                      setSelected((current) =>
+                        checked
+                          ? [...new Set([...current, row.id])]
+                          : current.filter((id) => id !== row.id),
+                      );
                     }}
+                  />
+                </s-table-cell>
+                <s-table-cell>
+                  <s-link
+                    id={`scenario-${row.id}`}
+                    href={ratesPaths.scenario(row.id)}
                   >
-                    <s-option value="all">All</s-option>
-                    <s-option value="active">Active</s-option>
-                    <s-option value="inactive">Inactive</s-option>
-                  </s-select>
-                </s-grid>
-                {rows.length === 0 ? (
-                  <s-stack gap="small">
-                    <s-paragraph>No scenarios match your filters.</s-paragraph>
-                    <s-stack direction="inline">
-                      <s-button
-                        variant="secondary"
-                        onClick={() => {
-                          setQuery("");
-                          setParams({});
-                        }}
-                      >
-                        Clear filters
-                      </s-button>
-                    </s-stack>
-                  </s-stack>
-                ) : (
-                  <>
-                    {selection.length > 0 ? (
-                      <s-stack
-                        direction="inline"
-                        gap="small"
-                        alignItems="center"
-                      >
-                        <s-text>{selection.length} selected</s-text>
-                        <s-button
-                          variant="secondary"
-                          disabled={busy || !connected}
-                          onClick={() => submit("activate")}
-                        >
-                          Set active
-                        </s-button>
-                        <s-button
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => submit("deactivate")}
-                        >
-                          Set inactive
-                        </s-button>
-                        <s-button
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => modal.current?.showOverlay()}
-                        >
-                          Delete selected
-                        </s-button>
-                      </s-stack>
-                    ) : null}
-                    <s-table>
-                      <s-table-header-row>
-                        <s-table-header>
-                          <s-checkbox
-                            accessibilityLabel="Select all scenarios"
-                            checked={allSelected}
-                            onChange={(event) =>
-                              setSelected(
-                                event.currentTarget.checked
-                                  ? rows.map(({ id }) => id)
-                                  : [],
-                              )
-                            }
-                          />
-                        </s-table-header>
-                        <s-table-header listSlot="primary">Name</s-table-header>
-                        <s-table-header listSlot="inline">
-                          Status
-                        </s-table-header>
-                        <s-table-header listSlot="labeled">
-                          Rates
-                        </s-table-header>
-                        <s-table-header listSlot="labeled">
-                          Updated
-                        </s-table-header>
-                      </s-table-header-row>
-                      <s-table-body>
-                        {rows.map((row) => (
-                          <s-table-row key={row.id}>
-                            <s-table-cell>
-                              <s-checkbox
-                                accessibilityLabel={`Select ${row.name}`}
-                                checked={selection.includes(row.id)}
-                                disabled={busy}
-                                onChange={(event) => {
-                                  const checked = event.currentTarget.checked;
-                                  setSelected((current) =>
-                                    checked
-                                      ? [...new Set([...current, row.id])]
-                                      : current.filter((id) => id !== row.id),
-                                  );
-                                }}
-                              />
-                            </s-table-cell>
-                            <s-table-cell>
-                              <s-link href={ratesPaths.scenario(row.id)}>
-                                {row.name}
-                              </s-link>
-                            </s-table-cell>
-                            <s-table-cell>
-                              <s-badge
-                                tone={row.active ? "success" : "neutral"}
-                              >
-                                {row.active ? "Active" : "Inactive"}
-                              </s-badge>
-                            </s-table-cell>
-                            <s-table-cell>{row._count.rates}</s-table-cell>
-                            <s-table-cell>
-                              {new Date(row.updatedAt)
-                                .toISOString()
-                                .slice(0, 10)}
-                            </s-table-cell>
-                          </s-table-row>
-                        ))}
-                      </s-table-body>
-                    </s-table>
-                    {pageCount > 1 ? (
-                      <s-stack
-                        direction="inline"
-                        justifyContent="end"
-                        alignItems="center"
-                        gap="small"
-                      >
-                        <s-button
-                          variant="secondary"
-                          disabled={page === 1}
-                          onClick={() => {
-                            setSelected([]);
-                            setParams(lookup(search, status, page - 1));
-                          }}
-                        >
-                          Previous
-                        </s-button>
-                        <s-text>
-                          {page} of {pageCount}
-                        </s-text>
-                        <s-button
-                          variant="secondary"
-                          disabled={page >= pageCount}
-                          onClick={() => {
-                            setSelected([]);
-                            setParams(lookup(search, status, page + 1));
-                          }}
-                        >
-                          Next
-                        </s-button>
-                      </s-stack>
-                    ) : null}
-                  </>
-                )}
-              </>
-            )}
-            <s-stack direction="inline" justifyContent="end" gap="small">
-              <s-button variant="secondary" href={ratesPaths.regions}>
-                Manage regions
-              </s-button>
-              <s-button variant="primary" href={ratesPaths.scenario("new")}>
-                Create scenario
-              </s-button>
-            </s-stack>
-          </s-stack>
-        </BorderedCard>
+                    {row.name}
+                  </s-link>
+                </s-table-cell>
+                <s-table-cell>
+                  <s-badge tone={row.active ? "success" : "neutral"}>
+                    {row.active ? "Active" : "Inactive"}
+                  </s-badge>
+                </s-table-cell>
+                <s-table-cell>{row._count.rates}</s-table-cell>
+                <s-table-cell>
+                  {new Date(row.updatedAt).toISOString().slice(0, 10)}
+                </s-table-cell>
+              </s-table-row>
+            ))}
+            {total === 0 ? (
+              <s-empty-state heading="Create your first scenario">
+                <s-text slot="subheading">
+                  Add a shipping rate and the conditions under which it should
+                  appear.
+                </s-text>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  href={ratesPaths.scenario("new")}
+                >
+                  Create scenario
+                </s-button>
+              </s-empty-state>
+            ) : rows.length === 0 ? (
+              <s-empty-state heading="No scenarios match those filters">
+                <s-icon slot="graphic" type="search" />
+                <s-text slot="subheading">
+                  Try changing the search term or status.
+                </s-text>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  onClick={() => {
+                    setQuery("");
+                    setSelected([]);
+                    setParams({});
+                  }}
+                >
+                  Clear filters
+                </s-button>
+                <s-button
+                  slot="secondary-actions"
+                  variant="secondary"
+                  href={ratesPaths.scenario("new")}
+                >
+                  Create scenario
+                </s-button>
+              </s-empty-state>
+            ) : null}
+          </s-table-body>
+        </IndexTableSection>
+        {pageCount > 1 ? (
+          <s-text color="subdued">
+            {page} of {pageCount}
+          </s-text>
+        ) : null}
+        <s-stack direction="inline" justifyContent="end" gap="small">
+          <s-button variant="secondary" href={ratesPaths.regions}>
+            Manage regions
+          </s-button>
+          <s-button variant="primary" href={ratesPaths.scenario("new")}>
+            Create scenario
+          </s-button>
+        </s-stack>
       </s-stack>
       <s-modal
         id="delete-scenarios-modal"

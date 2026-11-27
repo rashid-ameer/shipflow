@@ -1,4 +1,9 @@
-import { BorderedCard } from "../components/bordered-card";
+import {
+  IndexTableBulkActions,
+  IndexTableFilterChips,
+  IndexTableFilters,
+  IndexTableSection,
+} from "../components/index-table";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -150,13 +155,53 @@ export default function CombinedRatesPage() {
             <s-paragraph>{fetcher.data.error}</s-paragraph>
           </s-banner>
         ) : null}
-        {total ? (
-          <BorderedCard heading="Rules">
-            <s-stack gap="base">
-              <s-grid
-                gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))"
-                gap="base"
+        {manualOrder && total > 1 ? (
+          <s-paragraph>Rules run from top to bottom.</s-paragraph>
+        ) : null}
+        <IndexTableSection
+          label="Combined shipping rates"
+          loading={busy}
+          paginate={pageCount > 1}
+          hasPreviousPage={page > 1}
+          hasNextPage={page < pageCount}
+          onPreviousPage={() => {
+            setChecked([]);
+            setParams(filter(search, status, sort, page - 1));
+          }}
+          onNextPage={() => {
+            setChecked([]);
+            setParams(filter(search, status, sort, page + 1));
+          }}
+        >
+          {selected.length > 0 ? (
+            <IndexTableBulkActions count={selected.length} total={rows.length}>
+              <s-button
+                disabled={busy || !connected}
+                onClick={() => submit("activate", selected)}
               >
+                Set active
+              </s-button>
+              <s-button
+                disabled={busy}
+                onClick={() => submit("deactivate", selected)}
+              >
+                Set inactive
+              </s-button>
+              <s-button
+                disabled={busy}
+                commandFor="delete-combined-rates"
+                command="--show"
+                onClick={() => {
+                  setDeleteError(undefined);
+                  setConfirmation(selected);
+                }}
+              >
+                Delete selected
+              </s-button>
+            </IndexTableBulkActions>
+          ) : total > 0 ? (
+            <>
+              <IndexTableFilters columns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))">
                 <s-search-field
                   label="Search combined rates"
                   value={query}
@@ -186,167 +231,183 @@ export default function CombinedRatesPage() {
                   <s-option value="priority">Rule order</s-option>
                   <s-option value="name">Name</s-option>
                 </s-select>
-              </s-grid>
-              {manualOrder && total > 1 ? (
-                <s-paragraph>Rules run from top to bottom.</s-paragraph>
-              ) : null}
-              {selected.length ? (
-                <s-stack direction="inline" gap="small" alignItems="center">
-                  <s-text>{selected.length} selected</s-text>
-                  <s-button
-                    disabled={busy || !connected}
-                    onClick={() => submit("activate", selected)}
-                  >
-                    Set active
-                  </s-button>
-                  <s-button
-                    disabled={busy}
-                    onClick={() => submit("deactivate", selected)}
-                  >
-                    Set inactive
-                  </s-button>
-                  <s-button
-                    disabled={busy}
-                    commandFor="delete-combined-rates"
-                    command="--show"
-                    onClick={() => {
-                      setDeleteError(undefined);
-                      setConfirmation(selected);
+              </IndexTableFilters>
+              <IndexTableFilterChips
+                filters={[
+                  ...(search
+                    ? [
+                        {
+                          label: `Search: ${search}`,
+                          onRemove: () => {
+                            setQuery("");
+                            setChecked([]);
+                            setParams(filter("", status, sort));
+                          },
+                        },
+                      ]
+                    : []),
+                  ...(status !== "all"
+                    ? [
+                        {
+                          label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
+                          onRemove: () => {
+                            setChecked([]);
+                            setParams(filter(query, "all", sort));
+                          },
+                        },
+                      ]
+                    : []),
+                  ...(sort !== "priority"
+                    ? [
+                        {
+                          label: "Sort: Name",
+                          onRemove: () => {
+                            setChecked([]);
+                            setParams(filter(query, status, "priority"));
+                          },
+                        },
+                      ]
+                    : []),
+                ]}
+                onClearAll={() => {
+                  setQuery("");
+                  setChecked([]);
+                  setParams({});
+                }}
+              />
+            </>
+          ) : null}
+          <s-table-header-row>
+            <s-table-header>
+              <s-checkbox
+                accessibilityLabel="Select all combined rates"
+                checked={rows.length > 0 && selected.length === rows.length}
+                onChange={(event) =>
+                  setChecked(
+                    event.currentTarget.checked
+                      ? rows.map(({ id }) => id)
+                      : [],
+                  )
+                }
+              />
+            </s-table-header>
+            <s-table-header listSlot="primary">Rule</s-table-header>
+            <s-table-header listSlot="labeled">Calculation</s-table-header>
+            <s-table-header listSlot="labeled">Tags and criteria</s-table-header>
+            <s-table-header listSlot="labeled">Status</s-table-header>
+            {manualOrder ? <s-table-header>Order</s-table-header> : null}
+          </s-table-header-row>
+          <s-table-body>
+            {rows.map((row, index) => (
+              <s-table-row key={row.id} clickDelegate={`combined-${row.id}`}>
+                <s-table-cell>
+                  <s-checkbox
+                    accessibilityLabel={`Select ${row.name}`}
+                    checked={selected.includes(row.id)}
+                    onChange={(event) => {
+                      const checked = event.currentTarget.checked;
+                      setChecked((current) =>
+                        checked
+                          ? [...new Set([...current, row.id])]
+                          : current.filter((id) => id !== row.id),
+                      );
                     }}
-                  >
-                    Delete selected
-                  </s-button>
-                </s-stack>
-              ) : null}
-              {rows.length ? (
-                <s-table
-                  paginate
-                  hasPreviousPage={page > 1}
-                  hasNextPage={page < pageCount}
-                  loading={busy}
-                  onPreviousPage={() => {
+                  />
+                </s-table-cell>
+                <s-table-cell>
+                  <s-link id={`combined-${row.id}`} href={combinedPaths.editor(row.id)}>
+                    {row.name}
+                  </s-link>
+                </s-table-cell>
+                <s-table-cell>{combinationMethods[row.method]}</s-table-cell>
+                <s-table-cell>
+                  <s-stack gap="small">
+                    <s-text>{row.tags.join(", ")}</s-text>
+                    <s-text>
+                      {row.requirement === "all" ? "All tags" : "Any tag"}
+                      {row.requireTwoTags ? " · At least two tags" : ""}
+                    </s-text>
+                    {row.outputTag ? (
+                      <s-text>Output tag · {row.outputTag}</s-text>
+                    ) : null}
+                  </s-stack>
+                </s-table-cell>
+                <s-table-cell>
+                  <s-badge tone={row.active ? "success" : "neutral"}>
+                    {row.active ? "Active" : "Inactive"}
+                  </s-badge>
+                </s-table-cell>
+                {manualOrder ? (
+                  <s-table-cell>
+                    <s-stack direction="inline" gap="small">
+                      <s-button
+                        variant="tertiary"
+                        accessibilityLabel={`Move ${row.name} up`}
+                        icon="arrow-up"
+                        disabled={busy || (page === 1 && index === 0)}
+                        onClick={() => submit("up", [row.id], row.position)}
+                      />
+                      <s-button
+                        variant="tertiary"
+                        accessibilityLabel={`Move ${row.name} down`}
+                        icon="arrow-down"
+                        disabled={
+                          busy ||
+                          (page === pageCount && index === rows.length - 1)
+                        }
+                        onClick={() => submit("down", [row.id], row.position)}
+                      />
+                    </s-stack>
+                  </s-table-cell>
+                ) : null}
+              </s-table-row>
+            ))}
+            {total === 0 ? (
+              <s-empty-state heading="Add your first combined rate">
+                <s-text slot="subheading">
+                  Combine tagged shipping rates into one checkout option.
+                </s-text>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  href={combinedPaths.editor("new")}
+                >
+                  Add combined rate
+                </s-button>
+              </s-empty-state>
+            ) : rows.length === 0 ? (
+              <s-empty-state heading="No combined rates match those filters">
+                <s-icon slot="graphic" type="search" />
+                <s-text slot="subheading">
+                  Try changing the search term or status.
+                </s-text>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  onClick={() => {
+                    setQuery("");
                     setChecked([]);
-                    setParams(filter(search, status, sort, page - 1));
-                  }}
-                  onNextPage={() => {
-                    setChecked([]);
-                    setParams(filter(search, status, sort, page + 1));
+                    setParams({});
                   }}
                 >
-                  <s-table-header-row>
-                    <s-table-header>
-                      <s-checkbox
-                        accessibilityLabel="Select all combined rates"
-                        checked={selected.length === rows.length}
-                        onChange={(event) =>
-                          setChecked(
-                            event.currentTarget.checked
-                              ? rows.map(({ id }) => id)
-                              : [],
-                          )
-                        }
-                      />
-                    </s-table-header>
-                    <s-table-header listSlot="primary">Rule</s-table-header>
-                    <s-table-header listSlot="labeled">
-                      Calculation
-                    </s-table-header>
-                    <s-table-header listSlot="labeled">
-                      Tags and criteria
-                    </s-table-header>
-                    <s-table-header listSlot="labeled">Status</s-table-header>
-                    {manualOrder ? (
-                      <s-table-header>Order</s-table-header>
-                    ) : null}
-                  </s-table-header-row>
-                  <s-table-body>
-                    {rows.map((row, index) => (
-                      <s-table-row key={row.id}>
-                        <s-table-cell>
-                          <s-checkbox
-                            accessibilityLabel={`Select ${row.name}`}
-                            checked={selected.includes(row.id)}
-                            onChange={(event) => {
-                              const checked = event.currentTarget.checked;
-                              setChecked((current) =>
-                                checked
-                                  ? [...new Set([...current, row.id])]
-                                  : current.filter((id) => id !== row.id),
-                              );
-                            }}
-                          />
-                        </s-table-cell>
-                        <s-table-cell>
-                          <s-link href={combinedPaths.editor(row.id)}>
-                            {row.name}
-                          </s-link>
-                        </s-table-cell>
-                        <s-table-cell>
-                          {combinationMethods[row.method]}
-                        </s-table-cell>
-                        <s-table-cell>
-                          <s-stack gap="small">
-                            <s-text>{row.tags.join(", ")}</s-text>
-                            <s-text>
-                              {row.requirement === "all"
-                                ? "All tags"
-                                : "Any tag"}
-                              {row.requireTwoTags ? " · At least two tags" : ""}
-                            </s-text>
-                            {row.outputTag ? (
-                              <s-text>Output tag · {row.outputTag}</s-text>
-                            ) : null}
-                          </s-stack>
-                        </s-table-cell>
-                        <s-table-cell>
-                          <s-badge tone={row.active ? "success" : "neutral"}>
-                            {row.active ? "Active" : "Inactive"}
-                          </s-badge>
-                        </s-table-cell>
-                        {manualOrder ? (
-                          <s-table-cell>
-                            <s-stack direction="inline" gap="small">
-                              <s-button
-                                variant="tertiary"
-                                accessibilityLabel={`Move ${row.name} up`}
-                                icon="arrow-up"
-                                disabled={busy || (page === 1 && index === 0)}
-                                onClick={() =>
-                                  submit("up", [row.id], row.position)
-                                }
-                              />
-                              <s-button
-                                variant="tertiary"
-                                accessibilityLabel={`Move ${row.name} down`}
-                                icon="arrow-down"
-                                disabled={
-                                  busy ||
-                                  (page === pageCount &&
-                                    index === rows.length - 1)
-                                }
-                                onClick={() =>
-                                  submit("down", [row.id], row.position)
-                                }
-                              />
-                            </s-stack>
-                          </s-table-cell>
-                        ) : null}
-                      </s-table-row>
-                    ))}
-                  </s-table-body>
-                </s-table>
-              ) : (
-                <s-paragraph>No combined rates match your filters.</s-paragraph>
-              )}
-            </s-stack>
-          </BorderedCard>
-        ) : (
-          <BorderedCard heading="No combined rates yet">
-            <s-paragraph>
-              Combine tagged shipping rates into one checkout option.
-            </s-paragraph>
-          </BorderedCard>
-        )}
+                  Clear filters
+                </s-button>
+                <s-button
+                  slot="secondary-actions"
+                  variant="secondary"
+                  href={combinedPaths.editor("new")}
+                >
+                  Add combined rate
+                </s-button>
+              </s-empty-state>
+            ) : null}
+          </s-table-body>
+        </IndexTableSection>
+        {pageCount > 1 ? (
+          <s-text color="subdued">
+            {page} of {pageCount}
+          </s-text>
+        ) : null}
         <s-stack direction="inline" gap="small" justifyContent="end">
           <s-button href={diagnosticsPaths.simulator}>Open simulator</s-button>
           <s-button variant="primary" href={combinedPaths.editor("new")}>

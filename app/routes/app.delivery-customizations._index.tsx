@@ -1,4 +1,4 @@
-import { BorderedCard } from "../components/bordered-card";
+import { IndexTableSection } from "../components/index-table";
 import {
   redirect,
   useLoaderData,
@@ -80,67 +80,62 @@ export default function DeliveryCustomizations() {
             </s-button>
           </s-banner>
         ) : null}
-        <BorderedCard
-          heading={
-            rows.length === 0
-              ? "Create your first customization"
-              : "Customizations"
-          }
-        >
-          <s-stack gap="base">
+        <IndexTableSection label="Delivery customizations">
+          <s-table-header-row>
+            <s-table-header listSlot="primary">Customization</s-table-header>
+            <s-table-header listSlot="inline">Saved status</s-table-header>
+            <s-table-header listSlot="labeled">At checkout</s-table-header>
+          </s-table-header-row>
+          <s-table-body>
+            {rows.map((row) => {
+              const status = deliveryCheckoutStatus[row.status];
+              return (
+                <s-table-row key={row.id} clickDelegate={`customization-${row.id}`}>
+                  <s-table-cell>
+                    <s-link
+                      id={`customization-${row.id}`}
+                      href={deliveryPaths.edit(row.id)}
+                    >
+                      {row.name}
+                    </s-link>
+                  </s-table-cell>
+                  <s-table-cell>{row.active ? "Active" : "Inactive"}</s-table-cell>
+                  <s-table-cell>
+                    <s-badge tone={status.tone}>{status.label}</s-badge>
+                  </s-table-cell>
+                </s-table-row>
+              );
+            })}
             {rows.length === 0 ? (
-              <s-paragraph>
-                Hide, rename, or reorder the delivery options Shopify already
-                offers at checkout.
-              </s-paragraph>
-            ) : (
-              <s-table>
-                <s-table-header-row>
-                  <s-table-header listSlot="primary">
-                    Customization
-                  </s-table-header>
-                  <s-table-header listSlot="inline">
-                    Saved status
-                  </s-table-header>
-                  <s-table-header listSlot="labeled">
-                    At checkout
-                  </s-table-header>
-                </s-table-header-row>
-                <s-table-body>
-                  {rows.map((row) => {
-                    const status = deliveryCheckoutStatus[row.status];
-                    return (
-                      <s-table-row key={row.id}>
-                        <s-table-cell>
-                          <s-link href={deliveryPaths.edit(row.id)}>
-                            {row.name}
-                          </s-link>
-                        </s-table-cell>
-                        <s-table-cell>
-                          {row.active ? "Active" : "Inactive"}
-                        </s-table-cell>
-                        <s-table-cell>
-                          <s-badge tone={status.tone}>{status.label}</s-badge>
-                        </s-table-cell>
-                      </s-table-row>
-                    );
-                  })}
-                </s-table-body>
-              </s-table>
-            )}
-            {used !== null ? (
-              <s-paragraph>
-                {used} of {DELIVERY_LIMIT} active customization slots used
-                across all apps.
-              </s-paragraph>
+              <s-empty-state heading="Create your first customization">
+                <s-text slot="subheading">
+                  Hide, rename, or reorder the delivery options Shopify already
+                  offers at checkout.
+                </s-text>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  href={deliveryPaths.create}
+                >
+                  Create customization
+                </s-button>
+              </s-empty-state>
             ) : null}
-            <s-stack direction="inline" justifyContent="end">
-              <s-button variant="primary" href={deliveryPaths.create}>
-                Create customization
-              </s-button>
-            </s-stack>
+          </s-table-body>
+        </IndexTableSection>
+        {used !== null ? (
+          <s-paragraph>
+            {used} of {DELIVERY_LIMIT} active customization slots used across all
+            apps.
+          </s-paragraph>
+        ) : null}
+        {rows.length > 0 ? (
+          <s-stack direction="inline" justifyContent="end">
+            <s-button variant="primary" href={deliveryPaths.create}>
+              Create customization
+            </s-button>
           </s-stack>
-        </BorderedCard>
+        ) : null}
       </s-stack>
     </s-page>
   );

@@ -1,4 +1,9 @@
 import { BorderedCard } from "../components/bordered-card";
+import {
+  IndexTableFilterChips,
+  IndexTableFilters,
+  IndexTableSection,
+} from "../components/index-table";
 import { useEffect, useRef, useState } from "react";
 import {
   useFetcher,
@@ -359,64 +364,102 @@ export default function Products() {
             />
           </s-stack>
         </BorderedCard>
-        <BorderedCard heading="Synced products">
-          <s-stack gap="base">
+        <IndexTableSection
+          label="Synced products"
+          paginate={totalPages > 1}
+          hasPreviousPage={page > 1}
+          hasNextPage={page < totalPages}
+          onPreviousPage={() => navigate(page - 1)}
+          onNextPage={() => navigate(page + 1)}
+        >
+          <IndexTableFilters columns="minmax(0, 1fr)">
             <s-search-field
               label="Search by product name or tag"
               placeholder="Enter at least 3 characters"
               value={search}
               onInput={(event) => setQuery(event.currentTarget.value)}
             />
-            {products.length ? (
-              <s-table
-                paginate
-                hasPreviousPage={page > 1}
-                hasNextPage={page < totalPages}
-                onPreviousPage={() => navigate(page - 1)}
-                onNextPage={() => navigate(page + 1)}
+          </IndexTableFilters>
+          <IndexTableFilterChips
+            filters={
+              search
+                ? [
+                    {
+                      label: `Search: ${search}`,
+                      onRemove: () => {
+                        setQuery("");
+                        setSearch({});
+                      },
+                    },
+                  ]
+                : []
+            }
+            onClearAll={() => {
+              setQuery("");
+              setSearch({});
+            }}
+          />
+          <s-table-header-row>
+            <s-table-header listSlot="primary">Name</s-table-header>
+            <s-table-header>Variants</s-table-header>
+            <s-table-header>Tags</s-table-header>
+            <s-table-header>Action</s-table-header>
+          </s-table-header-row>
+          <s-table-body>
+            {products.map((product) => (
+              <s-table-row
+                key={product.id}
+                clickDelegate={`product-${product.id}`}
               >
-                <s-table-header-row>
-                  <s-table-header listSlot="primary">Name</s-table-header>
-                  <s-table-header>Variants</s-table-header>
-                  <s-table-header>Tags</s-table-header>
-                  <s-table-header>Action</s-table-header>
-                </s-table-header-row>
-                <s-table-body>
-                  {products.map((product) => (
-                    <s-table-row key={product.id}>
-                      <s-table-cell>{product.title}</s-table-cell>
-                      <s-table-cell>
-                        {product._count.variants > 1
-                          ? product._count.variants
-                          : ""}
-                      </s-table-cell>
-                      <s-table-cell>{product.tags.join(", ")}</s-table-cell>
-                      <s-table-cell>
-                        <s-link
-                          href={`${productsPath}/${product.id}`}
-                          accessibilityLabel={`Edit dimensions for ${product.title}`}
-                        >
-                          Edit
-                        </s-link>
-                      </s-table-cell>
-                    </s-table-row>
-                  ))}
-                </s-table-body>
-              </s-table>
+                <s-table-cell>{product.title}</s-table-cell>
+                <s-table-cell>
+                  {product._count.variants > 1 ? product._count.variants : ""}
+                </s-table-cell>
+                <s-table-cell>{product.tags.join(", ")}</s-table-cell>
+                <s-table-cell>
+                  <s-link
+                    id={`product-${product.id}`}
+                    href={`${productsPath}/${product.id}`}
+                    accessibilityLabel={`Edit dimensions for ${product.title}`}
+                  >
+                    Edit
+                  </s-link>
+                </s-table-cell>
+              </s-table-row>
+            ))}
+            {query ? (
+              <s-empty-state heading="No products match this search">
+                <s-icon slot="graphic" type="search" />
+                <s-text slot="subheading">
+                  Try a different product name or tag.
+                </s-text>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  onClick={() => {
+                    setQuery("");
+                    setSearch({});
+                  }}
+                >
+                  Clear filters
+                </s-button>
+              </s-empty-state>
             ) : (
-              <s-paragraph>
-                {query
-                  ? "No products match this search."
-                  : sync.job
+              <s-empty-state
+                heading={sync.job ? "Products are syncing" : "Sync products"}
+              >
+                <s-text slot="subheading">
+                  {sync.job
                     ? "Synced products will appear here."
                     : "Sync products to edit their dimensions."}
-              </s-paragraph>
+                </s-text>
+              </s-empty-state>
             )}
-            {count > 0 ? (
-              <s-text color="subdued">{count.toLocaleString()} products</s-text>
-            ) : null}
-          </s-stack>
-        </BorderedCard>
+          </s-table-body>
+        </IndexTableSection>
+        {count > 0 ? (
+          <s-text color="subdued">{count.toLocaleString()} products</s-text>
+        ) : null}
       </s-stack>
       <s-modal
         id="dimension-mapping"

@@ -1,4 +1,9 @@
 import { BorderedCard } from "./bordered-card";
+import {
+  IndexTableFilterChips,
+  IndexTableFilters,
+  IndexTableSection,
+} from "./index-table";
 import { useState } from "react";
 
 import type { MarketsDashboardData } from "../models/market-readiness";
@@ -138,83 +143,103 @@ export function MarketsDashboard({
               </s-banner>
             ) : null}
 
-            <s-stack direction="inline" gap="small-200">
-              <s-button
-                {...pressedState(filter === "all")}
-                variant={filter === "all" ? "primary" : "secondary"}
-                onClick={() => setFilter("all")}
-              >
-                All ({markets.length})
-              </s-button>
-              <s-button
-                {...pressedState(filter === "ready")}
-                variant={filter === "ready" ? "primary" : "secondary"}
-                onClick={() => setFilter("ready")}
-              >
-                Ready ({readyCount})
-              </s-button>
-              <s-button
-                {...pressedState(filter === "needs-setup")}
-                variant={filter === "needs-setup" ? "primary" : "secondary"}
-                onClick={() => setFilter("needs-setup")}
-              >
-                Needs setup ({needsSetupCount})
-              </s-button>
-            </s-stack>
-
-            {visibleMarkets.length > 0 ? (
-              <s-table>
-                <s-table-header-row>
-                  <s-table-header listSlot="primary">Market</s-table-header>
-                  <s-table-header listSlot="secondary">Status</s-table-header>
-                  <s-table-header listSlot="inline">Action</s-table-header>
-                </s-table-header-row>
-                <s-table-body>
-                  {visibleMarkets.map((market) => (
-                    <s-table-row key={market.id}>
-                      <s-table-cell>
-                        <s-text type="strong">{market.name}</s-text>
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-badge tone={market.ready ? "success" : "warning"}>
-                          {market.ready ? "Ready" : "Needs setup"}
-                        </s-badge>
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-button
-                          href={market.manageUrl}
-                          target="_blank"
-                          icon="external"
-                          variant="secondary"
-                          accessibilityLabel={`Manage ${market.name} in Shopify`}
-                        >
-                          Manage
-                        </s-button>
-                      </s-table-cell>
-                    </s-table-row>
-                  ))}
-                </s-table-body>
-              </s-table>
-            ) : (
-              <s-box padding="base" border="base base solid" borderRadius="base">
-                <s-stack direction="block" gap="small-200" alignItems="center">
-                  <s-text type="strong">
-                    {filter === "ready"
+            <IndexTableSection label="Markets">
+              <IndexTableFilters columns="auto">
+                <s-stack direction="inline" gap="small-200">
+                  <s-button
+                    {...pressedState(filter === "all")}
+                    variant={filter === "all" ? "primary" : "secondary"}
+                    onClick={() => setFilter("all")}
+                  >
+                    All ({markets.length})
+                  </s-button>
+                  <s-button
+                    {...pressedState(filter === "ready")}
+                    variant={filter === "ready" ? "primary" : "secondary"}
+                    onClick={() => setFilter("ready")}
+                  >
+                    Ready ({readyCount})
+                  </s-button>
+                  <s-button
+                    {...pressedState(filter === "needs-setup")}
+                    variant={filter === "needs-setup" ? "primary" : "secondary"}
+                    onClick={() => setFilter("needs-setup")}
+                  >
+                    Needs setup ({needsSetupCount})
+                  </s-button>
+                </s-stack>
+              </IndexTableFilters>
+              <IndexTableFilterChips
+                filters={
+                  filter === "all"
+                    ? []
+                    : [
+                        {
+                          label:
+                            filter === "ready" ? "Status: Ready" : "Status: Needs setup",
+                          onRemove: () => setFilter("all"),
+                        },
+                      ]
+                }
+                onClearAll={() => setFilter("all")}
+              />
+              <s-table-header-row>
+                <s-table-header listSlot="primary">Market</s-table-header>
+                <s-table-header listSlot="secondary">Status</s-table-header>
+                <s-table-header listSlot="inline">Action</s-table-header>
+              </s-table-header-row>
+              <s-table-body>
+                {visibleMarkets.map((market) => (
+                  <s-table-row key={market.id}>
+                    <s-table-cell>
+                      <s-text type="strong">{market.name}</s-text>
+                    </s-table-cell>
+                    <s-table-cell>
+                      <s-badge tone={market.ready ? "success" : "warning"}>
+                        {market.ready ? "Ready" : "Needs setup"}
+                      </s-badge>
+                    </s-table-cell>
+                    <s-table-cell>
+                      <s-button
+                        href={market.manageUrl}
+                        target="_blank"
+                        icon="external"
+                        variant="secondary"
+                        accessibilityLabel={`Manage ${market.name} in Shopify`}
+                      >
+                        Manage
+                      </s-button>
+                    </s-table-cell>
+                  </s-table-row>
+                ))}
+                <s-empty-state
+                  heading={
+                    filter === "ready"
                       ? "No ready markets"
                       : filter === "needs-setup"
                         ? "All markets are ready"
-                        : "No active markets"}
-                  </s-text>
-                  <s-paragraph>
+                        : "No active markets"
+                  }
+                >
+                  <s-text slot="subheading">
                     {filter === "ready"
                       ? "No market currently has ShipFlow enabled as a carrier-calculated rate provider."
                       : filter === "needs-setup"
                         ? "ShipFlow is enabled in every active market."
                         : "Create or activate a Shopify Market. It will appear here automatically after you refresh."}
-                  </s-paragraph>
-                </s-stack>
-              </s-box>
-            )}
+                  </s-text>
+                  {filter !== "all" ? (
+                    <s-button
+                      slot="primary-action"
+                      variant="primary"
+                      onClick={() => setFilter("all")}
+                    >
+                      Show all markets
+                    </s-button>
+                  ) : null}
+                </s-empty-state>
+              </s-table-body>
+            </IndexTableSection>
           </s-stack>
         ) : (
           <s-banner tone="warning" heading="Market status could not be checked">

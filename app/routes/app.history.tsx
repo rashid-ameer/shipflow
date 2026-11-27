@@ -1,4 +1,9 @@
 import { BorderedCard } from "../components/bordered-card";
+import {
+  IndexTableFilterChips,
+  IndexTableFilters,
+  IndexTableSection,
+} from "../components/index-table";
 import { useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -218,68 +223,99 @@ function HistoryList({
     setParams(next);
   }
   return (
-    <BorderedCard heading="Requests">
-      <s-stack gap="base">
-        <s-search-field
-          label="Search customer name or History ID"
-          value={query}
-          maxLength={120}
-          disabled={loading}
-          onInput={(event) => setQuery(event.currentTarget.value)}
-        />
-        <s-stack direction="inline">
+    <>
+      {history.customerLookupUnavailable ? (
+        <s-banner tone="info" heading="Customer names are unavailable">
+          <s-paragraph>
+            You can still search by History ID. Shopify customer access is
+            needed to look up names.
+          </s-paragraph>
           <s-button
-            icon="calendar"
-            accessibilityLabel={
-              rangeLabel ? `Date range, ${rangeLabel}` : undefined
-            }
-            commandFor="history-date-range"
-            command="--toggle"
-            disabled={loading}
+            slot="secondary-actions"
+            onClick={async () => {
+              try {
+                const access = await shopify.scopes.request(["read_customers"]);
+                if (access.detail.granted.includes("read_customers"))
+                  revalidator.revalidate();
+              } catch {
+                shopify.toast.show(
+                  "Customer access could not be requested. Try again.",
+                  { isError: true },
+                );
+              }
+            }}
           >
-            {rangeLabel || "Date range"}
+            Allow customer access
           </s-button>
-        </s-stack>
-        <s-popover id="history-date-range" inlineSize="300px">
-          <s-box padding="small">
-            <s-stack gap="small">
-              <s-date-picker
-                type="range"
-                allow={`${history.min}--${history.max}`}
-                defaultView={(history.from || history.to || history.max).slice(
-                  0,
-                  7,
-                )}
-                value={
-                  draftRange ?? (from || to ? `${rangeStart}--${rangeEnd}` : "")
-                }
-                onInput={(event) => setDraftRange(event.currentTarget.value)}
-              />
-              <s-stack direction="inline" justifyContent="end">
-                <s-button commandFor="history-date-range" command="--hide">
-                  Done
-                </s-button>
-              </s-stack>
-            </s-stack>
-          </s-box>
-        </s-popover>
-        {invalidDates ? (
-          <s-text tone="critical">
-            Choose an end date on or after the start date.
-          </s-text>
-        ) : null}
-        <s-stack direction="inline" gap="small" justifyContent="end">
-          {history.search ||
-          history.from ||
-          history.to ||
-          query ||
-          from ||
-          to ? (
+        </s-banner>
+      ) : null}
+      <IndexTableSection
+        label="Checkout requests"
+        loading={loading}
+        paginate={history.pageCount > 1}
+        hasPreviousPage={history.page > 1}
+        hasNextPage={history.page < history.pageCount}
+        onPreviousPage={() => go(history.page - 1)}
+        onNextPage={() => go(history.page + 1)}
+      >
+        <IndexTableFilters columns="minmax(0, 2fr) auto">
+          <s-search-field
+            label="Search customer name or History ID"
+            value={query}
+            maxLength={120}
+            disabled={loading}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+          <s-stack direction="inline">
+            <s-button
+              icon="calendar"
+              accessibilityLabel={
+                rangeLabel ? `Date range, ${rangeLabel}` : undefined
+              }
+              commandFor="history-date-range"
+              command="--toggle"
+              disabled={loading}
+            >
+              {rangeLabel || "Date range"}
+            </s-button>
+            <s-popover id="history-date-range" inlineSize="300px">
+              <s-box padding="small">
+                <s-stack gap="small">
+                  <s-date-picker
+                    type="range"
+                    allow={`${history.min}--${history.max}`}
+                    defaultView={(history.from || history.to || history.max).slice(
+                      0,
+                      7,
+                    )}
+                    value={
+                      draftRange ??
+                      (from || to ? `${rangeStart}--${rangeEnd}` : "")
+                    }
+                    onInput={(event) => setDraftRange(event.currentTarget.value)}
+                  />
+                  <s-stack direction="inline" justifyContent="end">
+                    <s-button commandFor="history-date-range" command="--hide">
+                      Done
+                    </s-button>
+                  </s-stack>
+                </s-stack>
+              </s-box>
+            </s-popover>
+          </s-stack>
+        </IndexTableFilters>
+        <s-stack slot="filters" direction="inline" gap="small" justifyContent="end">
+          {invalidDates ? (
+            <s-text tone="critical">
+              Choose an end date on or after the start date.
+            </s-text>
+          ) : null}
+          {history.search || history.from || history.to ? (
             <s-button
               disabled={loading}
               onClick={() => {
                 setQuery("");
-                setDraftRange("");
+                setDraftRange(undefined);
                 setParams(new URLSearchParams());
               }}
             >
@@ -293,103 +329,120 @@ function HistoryList({
             Apply filters
           </s-button>
         </s-stack>
-        {history.customerLookupUnavailable ? (
-          <s-banner tone="info" heading="Customer names are unavailable">
-            <s-paragraph>
-              You can still search by History ID. Shopify customer access is
-              needed to look up names.
-            </s-paragraph>
-            <s-button
-              slot="secondary-actions"
-              onClick={async () => {
-                try {
-                  const access = await shopify.scopes.request([
-                    "read_customers",
-                  ]);
-                  if (access.detail.granted.includes("read_customers"))
-                    revalidator.revalidate();
-                } catch {
-                  shopify.toast.show(
-                    "Customer access could not be requested. Try again.",
-                    { isError: true },
-                  );
-                }
-              }}
-            >
-              Allow customer access
-            </s-button>
-          </s-banner>
-        ) : null}
-        {!history.rows.length ? (
-          history.hasRequests ? (
-            <s-paragraph>
-              No requests match these filters. Try a different date range or
-              search term.
-            </s-paragraph>
+        <IndexTableFilterChips
+          filters={[
+            ...(history.search
+              ? [
+                  {
+                    label: `Search: ${history.search}`,
+                    onRemove: () => {
+                      const params = new URLSearchParams();
+                      if (history.from) params.set("from", history.from);
+                      if (history.to) params.set("to", history.to);
+                      setQuery("");
+                      setParams(params);
+                    },
+                  },
+                ]
+              : []),
+            ...(history.from || history.to
+              ? [
+                  {
+                    label: `Date: ${history.from || history.min} – ${history.to || history.max}`,
+                    onRemove: () => {
+                      const params = new URLSearchParams();
+                      if (history.search) params.set("q", history.search);
+                      setDraftRange(undefined);
+                      setParams(params);
+                    },
+                  },
+                ]
+              : []),
+          ]}
+          onClearAll={() => {
+            setQuery("");
+            setDraftRange(undefined);
+            setParams(new URLSearchParams());
+          }}
+        />
+        <s-table-header-row>
+          <s-table-header listSlot="primary">History ID</s-table-header>
+          <s-table-header listSlot="labeled">Customer</s-table-header>
+          <s-table-header listSlot="labeled">Received</s-table-header>
+          <s-table-header listSlot="labeled">Destination</s-table-header>
+          <s-table-header listSlot="labeled">Outcome</s-table-header>
+        </s-table-header-row>
+        <s-table-body>
+          {history.rows.map((row) => (
+            <s-table-row key={row.id} clickDelegate={`history-${row.id}`}>
+              <s-table-cell>
+                <s-link id={`history-${row.id}`} href={diagnosticsPaths.request(row.id)}>
+                  {row.id}
+                </s-link>
+              </s-table-cell>
+              <s-table-cell>{row.customer}</s-table-cell>
+              <s-table-cell>{historyTime(row.receivedAt)}</s-table-cell>
+              <s-table-cell>{formatPlace(row)}</s-table-cell>
+              <s-table-cell>
+                <s-badge
+                  tone={
+                    row.statusCode >= 400
+                      ? "critical"
+                      : row.rateCount
+                        ? "success"
+                        : "neutral"
+                  }
+                >
+                  {row.statusCode >= 400
+                    ? "Request error"
+                    : row.rateCount
+                      ? `${row.rateCount} ${row.rateCount === 1 ? "rate" : "rates"}`
+                      : "No rates"}
+                </s-badge>
+              </s-table-cell>
+            </s-table-row>
+          ))}
+          {history.hasRequests ? (
+            <s-empty-state heading="No requests match those filters">
+              <s-icon slot="graphic" type="search" />
+              <s-text slot="subheading">
+                Try a different date range or search term.
+              </s-text>
+              <s-button
+                slot="primary-action"
+                variant="primary"
+                onClick={() => {
+                  setQuery("");
+                  setDraftRange(undefined);
+                  setParams(new URLSearchParams());
+                }}
+              >
+                Clear filters
+              </s-button>
+            </s-empty-state>
           ) : (
-            <s-banner tone="info" heading="No checkout requests received">
-              <s-paragraph>
-                Shopify hasn’t sent ShipFlow a Carrier Service request in the
-                last 30 days.{" "}
+            <s-empty-state heading="No checkout requests received">
+              <s-text slot="subheading">
                 {history.connected
-                  ? "Verify the shipping setup and use a real checkout in a destination where ShipFlow is enabled."
+                  ? "Shopify hasn’t sent ShipFlow a Carrier Service request in the last 30 days. Verify the shipping setup and use a real checkout in a destination where ShipFlow is enabled."
                   : "Connect Carrier Calculated Shipping and enable ShipFlow as a rate provider in Shopify."}
-              </s-paragraph>
-              <s-button slot="secondary-actions" href={ratesPaths.hub}>
+              </s-text>
+              <s-button
+                slot="primary-action"
+                variant="primary"
+                href={ratesPaths.hub}
+              >
                 Check calculated shipping setup
               </s-button>
-            </s-banner>
-          )
-        ) : (
-          <s-table
-            paginate
-            hasPreviousPage={history.page > 1}
-            hasNextPage={history.page < history.pageCount}
-            loading={loading}
-            onPreviousPage={() => go(history.page - 1)}
-            onNextPage={() => go(history.page + 1)}
-          >
-            <s-table-header-row>
-              <s-table-header listSlot="primary">History ID</s-table-header>
-              <s-table-header listSlot="labeled">Customer</s-table-header>
-              <s-table-header listSlot="labeled">Received</s-table-header>
-              <s-table-header listSlot="labeled">Destination</s-table-header>
-              <s-table-header listSlot="labeled">Outcome</s-table-header>
-            </s-table-header-row>
-            <s-table-body>
-              {history.rows.map((row) => (
-                <s-table-row key={row.id}>
-                  <s-table-cell>
-                    <s-link href={diagnosticsPaths.request(row.id)}>
-                      {row.id}
-                    </s-link>
-                  </s-table-cell>
-                  <s-table-cell>{row.customer}</s-table-cell>
-                  <s-table-cell>{historyTime(row.receivedAt)}</s-table-cell>
-                  <s-table-cell>{formatPlace(row)}</s-table-cell>
-                  <s-table-cell>
-                    <s-badge
-                      tone={
-                        row.statusCode >= 400
-                          ? "critical"
-                          : row.rateCount
-                            ? "success"
-                            : "neutral"
-                      }
-                    >
-                      {row.statusCode >= 400
-                        ? "Request error"
-                        : row.rateCount
-                          ? `${row.rateCount} ${row.rateCount === 1 ? "rate" : "rates"}`
-                          : "No rates"}
-                    </s-badge>
-                  </s-table-cell>
-                </s-table-row>
-              ))}
-            </s-table-body>
-          </s-table>
-        )}
-      </s-stack>
-    </BorderedCard>
+            </s-empty-state>
+          )}
+        </s-table-body>
+      </IndexTableSection>
+      {history.pageCount > 1 ? (
+        <s-text color="subdued">
+          {history.page} of {history.pageCount}
+        </s-text>
+      ) : null}
+    </>
   );
 }

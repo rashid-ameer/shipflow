@@ -1,4 +1,4 @@
-import { BorderedCard } from "../components/bordered-card";
+import { IndexTableSection } from "../components/index-table";
 import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -289,62 +289,57 @@ function DimensionsEditor({
             continuing in the new unit.
           </s-banner>
         ) : null}
-        <BorderedCard heading="Variant dimensions">
-          <s-stack gap="base">
-            <s-paragraph>
-              Enter measurements in {initial.unit}. Leave an unknown dimension
-              blank.
-            </s-paragraph>
-            <s-table
-              key={version}
-              paginate={initial.pages > 1}
-              hasPreviousPage={initial.page > 1}
-              hasNextPage={initial.page < initial.pages}
-              onPreviousPage={() => navigate(initial.page - 1)}
-              onNextPage={() => navigate(initial.page + 1)}
-            >
-              <s-table-header-row>
-                <s-table-header listSlot="primary">Variant</s-table-header>
+        <s-paragraph>
+          Enter measurements in {initial.unit}. Leave an unknown dimension
+          blank.
+        </s-paragraph>
+        <IndexTableSection
+          key={version}
+          label="Variant dimensions"
+          paginate={initial.pages > 1}
+          hasPreviousPage={initial.page > 1}
+          hasNextPage={initial.page < initial.pages}
+          onPreviousPage={() => navigate(initial.page - 1)}
+          onNextPage={() => navigate(initial.page + 1)}
+        >
+          <s-table-header-row>
+            <s-table-header listSlot="primary">Variant</s-table-header>
+            {dimensionAxes.map((axis) => (
+              <s-table-header key={axis}>
+                {labels[axis]} ({initial.unit})
+              </s-table-header>
+            ))}
+          </s-table-header-row>
+          <s-table-body>
+            {initial.rows.map((row) => (
+              <s-table-row key={row.id}>
+                <s-table-cell>
+                  <s-stack gap="small">
+                    {row.title}
+                    {row.sku ? (
+                      <s-text color="subdued">{row.sku}</s-text>
+                    ) : null}
+                  </s-stack>
+                </s-table-cell>
                 {dimensionAxes.map((axis) => (
-                  <s-table-header key={axis}>
-                    {labels[axis]} ({initial.unit})
-                  </s-table-header>
+                  <s-table-cell key={axis}>
+                    <s-number-field
+                      label={`${row.title} ${labels[axis]} (${initial.unit})`}
+                      labelAccessibilityVisibility="exclusive"
+                      min={0}
+                      inputMode="decimal"
+                      value={draft[row.id]?.values[axis] ?? row.values[axis]}
+                      disabled={busy || !ready || unitChanged}
+                      onInput={(event) =>
+                        patch(row, axis, event.currentTarget.value)
+                      }
+                    />
+                  </s-table-cell>
                 ))}
-              </s-table-header-row>
-              <s-table-body>
-                {initial.rows.map((row) => (
-                  <s-table-row key={row.id}>
-                    <s-table-cell>
-                      <s-stack gap="small">
-                        {row.title}
-                        {row.sku ? (
-                          <s-text color="subdued">{row.sku}</s-text>
-                        ) : null}
-                      </s-stack>
-                    </s-table-cell>
-                    {dimensionAxes.map((axis) => (
-                      <s-table-cell key={axis}>
-                        <s-number-field
-                          label={`${row.title} ${labels[axis]} (${initial.unit})`}
-                          labelAccessibilityVisibility="exclusive"
-                          min={0}
-                          inputMode="decimal"
-                          value={
-                            draft[row.id]?.values[axis] ?? row.values[axis]
-                          }
-                          disabled={busy || !ready || unitChanged}
-                          onInput={(event) =>
-                            patch(row, axis, event.currentTarget.value)
-                          }
-                        />
-                      </s-table-cell>
-                    ))}
-                  </s-table-row>
-                ))}
-              </s-table-body>
-            </s-table>
-          </s-stack>
-        </BorderedCard>
+              </s-table-row>
+            ))}
+          </s-table-body>
+        </IndexTableSection>
         <s-stack direction="inline" gap="small" justifyContent="end">
           <s-button href={productsPath} onClick={back}>
             Back

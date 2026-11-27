@@ -1,4 +1,5 @@
 import { BorderedCard } from "./bordered-card";
+import { IndexTableSection } from "./index-table";
 import {
   formatRateAmount,
   type ConditionOutcome,
@@ -234,7 +235,7 @@ export function CheckoutPricingResults({
                   {selectionLabels[trace.selection]} ·{" "}
                   {roundingLabels[trace.rounding]}
                 </s-paragraph>
-                <s-table>
+                <IndexTableSection label="Price breakdown">
                   <s-table-header-row>
                     <s-table-header listSlot="primary">
                       Shipping rate
@@ -279,7 +280,7 @@ export function CheckoutPricingResults({
                       </s-table-row>
                     ))}
                   </s-table-body>
-                </s-table>
+                </IndexTableSection>
                 {trace.rates
                   .filter(
                     (rate) =>
@@ -352,7 +353,7 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
             <s-text>Checkout language: {snapshot.locale}</s-text>
           ) : null}
         </s-stack>
-        <s-table>
+        <IndexTableSection label="Cart items">
           <s-table-header-row>
             <s-table-header listSlot="primary">Item</s-table-header>
             <s-table-header listSlot="labeled" format="numeric">
@@ -384,7 +385,7 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
               </s-table-row>
             ))}
           </s-table-body>
-        </s-table>
+        </IndexTableSection>
         {snapshot.extraLines ? (
           <s-paragraph>
             {snapshot.extraLines} additional items were included in pricing.
