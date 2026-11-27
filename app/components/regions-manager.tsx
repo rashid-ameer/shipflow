@@ -63,6 +63,14 @@ export function RegionsManager({ regions }: { regions: Regions }) {
 
   return (
     <>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        disabled={busy || editing || deleting}
+        onClick={startCreate}
+      >
+        Create region
+      </s-button>
       <IndexTableSection label="Regions">
         <s-table-header-row>
           <s-table-header listSlot="primary">Region</s-table-header>
@@ -120,31 +128,12 @@ export function RegionsManager({ regions }: { regions: Regions }) {
               <s-text slot="subheading">
                 Choose the countries ShipFlow should serve.
               </s-text>
-              <s-button
-                slot="primary-action"
-                variant="primary"
-                disabled={busy || editing || deleting}
-                onClick={startCreate}
-              >
-                Create region
-              </s-button>
             </s-empty-state>
           ) : null}
         </s-table-body>
       </IndexTableSection>
       {regions.length > 0 && !canDelete ? (
         <s-paragraph>Keep at least one named region.</s-paragraph>
-      ) : null}
-      {regions.length > 0 ? (
-        <s-stack direction="inline" justifyContent="end">
-          <s-button
-            variant="primary"
-            disabled={busy || editing || deleting}
-            onClick={startCreate}
-          >
-            Create region
-          </s-button>
-        </s-stack>
       ) : null}
       <s-modal
         id="region-editor-modal"

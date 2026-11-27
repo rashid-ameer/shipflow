@@ -146,6 +146,16 @@ export default function CombinedRatesPage() {
       <s-link slot="breadcrumb-actions" href={ratesPaths.hub}>
         Rates
       </s-link>
+      <s-button slot="secondary-actions" href={diagnosticsPaths.simulator}>
+        Open simulator
+      </s-button>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        href={combinedPaths.editor("new")}
+      >
+        Add combined rate
+      </s-button>
       <s-stack gap="base">
         {fetcher.data && !fetcher.data.ok && !deleteError ? (
           <s-banner
@@ -367,13 +377,6 @@ export default function CombinedRatesPage() {
                 <s-text slot="subheading">
                   Combine tagged shipping rates into one checkout option.
                 </s-text>
-                <s-button
-                  slot="primary-action"
-                  variant="primary"
-                  href={combinedPaths.editor("new")}
-                >
-                  Add combined rate
-                </s-button>
               </s-empty-state>
             ) : rows.length === 0 ? (
               <s-empty-state heading="No combined rates match those filters">
@@ -392,13 +395,6 @@ export default function CombinedRatesPage() {
                 >
                   Clear filters
                 </s-button>
-                <s-button
-                  slot="secondary-actions"
-                  variant="secondary"
-                  href={combinedPaths.editor("new")}
-                >
-                  Add combined rate
-                </s-button>
               </s-empty-state>
             ) : null}
           </s-table-body>
@@ -408,12 +404,6 @@ export default function CombinedRatesPage() {
             {page} of {pageCount}
           </s-text>
         ) : null}
-        <s-stack direction="inline" gap="small" justifyContent="end">
-          <s-button href={diagnosticsPaths.simulator}>Open simulator</s-button>
-          <s-button variant="primary" href={combinedPaths.editor("new")}>
-            Add combined rate
-          </s-button>
-        </s-stack>
       </s-stack>
       <s-modal
         id="delete-combined-rates"

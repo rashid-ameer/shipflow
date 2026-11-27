@@ -53,6 +53,13 @@ export default function DeliveryCustomizations() {
       <s-link slot="breadcrumb-actions" href="/app">
         Home
       </s-link>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        href={deliveryPaths.create}
+      >
+        Create customization
+      </s-button>
       <s-stack gap="base">
         {issue ? (
           <s-banner tone="warning" heading="Could not check checkout status">
@@ -112,13 +119,6 @@ export default function DeliveryCustomizations() {
                   Hide, rename, or reorder the delivery options Shopify already
                   offers at checkout.
                 </s-text>
-                <s-button
-                  slot="primary-action"
-                  variant="primary"
-                  href={deliveryPaths.create}
-                >
-                  Create customization
-                </s-button>
               </s-empty-state>
             ) : null}
           </s-table-body>
@@ -128,13 +128,6 @@ export default function DeliveryCustomizations() {
             {used} of {DELIVERY_LIMIT} active customization slots used across all
             apps.
           </s-paragraph>
-        ) : null}
-        {rows.length > 0 ? (
-          <s-stack direction="inline" justifyContent="end">
-            <s-button variant="primary" href={deliveryPaths.create}>
-              Create customization
-            </s-button>
-          </s-stack>
         ) : null}
       </s-stack>
     </s-page>

@@ -268,34 +268,35 @@ export default function Products() {
 
   return (
     <s-page heading="Products">
+      <s-button
+        slot="secondary-actions"
+        commandFor="dimensions-csv"
+        command="--show"
+        onClick={() => setDialog("csv")}
+      >
+        Import product dimensions
+      </s-button>
+      <s-button
+        slot="secondary-actions"
+        disabled={busy || Boolean(sync.job)}
+        commandFor="dimension-mapping"
+        command="--show"
+        onClick={() => {
+          setMapping(sync.mapping);
+          setDialog("mapping");
+        }}
+      >
+        Sync metafields
+      </s-button>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        disabled={busy || Boolean(sync.job)}
+        onClick={() => submit("sync")}
+      >
+        Sync products
+      </s-button>
       <s-stack gap="base">
-        <s-stack direction="inline" gap="small" justifyContent="end">
-          <s-button
-            commandFor="dimensions-csv"
-            command="--show"
-            onClick={() => setDialog("csv")}
-          >
-            Import product dimensions
-          </s-button>
-          <s-button
-            disabled={busy || Boolean(sync.job)}
-            commandFor="dimension-mapping"
-            command="--show"
-            onClick={() => {
-              setMapping(sync.mapping);
-              setDialog("mapping");
-            }}
-          >
-            Sync metafields
-          </s-button>
-          <s-button
-            variant="primary"
-            disabled={busy || Boolean(sync.job)}
-            onClick={() => submit("sync")}
-          >
-            Sync products
-          </s-button>
-        </s-stack>
         {result && !result.ok && !dialog ? (
           <s-banner tone="critical" heading="Action could not be completed">
             {result.error}

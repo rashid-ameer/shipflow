@@ -124,6 +124,16 @@ export default function ScenariosPage() {
       <s-link slot="breadcrumb-actions" href={ratesPaths.hub}>
         Rates
       </s-link>
+      <s-button slot="secondary-actions" href={ratesPaths.regions}>
+        Manage regions
+      </s-button>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        href={ratesPaths.scenario("new")}
+      >
+        Create scenario
+      </s-button>
       <s-stack gap="base">
         {fetcher.data && !fetcher.data.ok ? (
           <s-banner tone="critical" heading="Scenarios were not updated">
@@ -298,13 +308,6 @@ export default function ScenariosPage() {
                   Add a shipping rate and the conditions under which it should
                   appear.
                 </s-text>
-                <s-button
-                  slot="primary-action"
-                  variant="primary"
-                  href={ratesPaths.scenario("new")}
-                >
-                  Create scenario
-                </s-button>
               </s-empty-state>
             ) : rows.length === 0 ? (
               <s-empty-state heading="No scenarios match those filters">
@@ -323,13 +326,6 @@ export default function ScenariosPage() {
                 >
                   Clear filters
                 </s-button>
-                <s-button
-                  slot="secondary-actions"
-                  variant="secondary"
-                  href={ratesPaths.scenario("new")}
-                >
-                  Create scenario
-                </s-button>
               </s-empty-state>
             ) : null}
           </s-table-body>
@@ -339,14 +335,6 @@ export default function ScenariosPage() {
             {page} of {pageCount}
           </s-text>
         ) : null}
-        <s-stack direction="inline" justifyContent="end" gap="small">
-          <s-button variant="secondary" href={ratesPaths.regions}>
-            Manage regions
-          </s-button>
-          <s-button variant="primary" href={ratesPaths.scenario("new")}>
-            Create scenario
-          </s-button>
-        </s-stack>
       </s-stack>
       <s-modal
         id="delete-scenarios-modal"

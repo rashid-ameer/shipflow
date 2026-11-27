@@ -228,15 +228,6 @@ export function MarketsDashboard({
                         ? "ShipFlow is enabled in every active market."
                         : "Create or activate a Shopify Market. It will appear here automatically after you refresh."}
                   </s-text>
-                  {filter !== "all" ? (
-                    <s-button
-                      slot="primary-action"
-                      variant="primary"
-                      onClick={() => setFilter("all")}
-                    >
-                      Show all markets
-                    </s-button>
-                  ) : null}
                 </s-empty-state>
               </s-table-body>
             </IndexTableSection>

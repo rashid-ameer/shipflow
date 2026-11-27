@@ -97,6 +97,11 @@ export default function CheckoutHistoryPage() {
       >
         Refresh
       </s-button>
+      {history.hasRequests ? null : (
+        <s-button slot="secondary-actions" href={ratesPaths.hub}>
+          Check calculated shipping setup
+        </s-button>
+      )}
       <s-stack gap="base">
         <s-paragraph>
           View Carrier Service requests from the last 30 days. Dates and times
@@ -427,13 +432,6 @@ function HistoryList({
                   ? "Shopify hasn’t sent ShipFlow a Carrier Service request in the last 30 days. Verify the shipping setup and use a real checkout in a destination where ShipFlow is enabled."
                   : "Connect Carrier Calculated Shipping and enable ShipFlow as a rate provider in Shopify."}
               </s-text>
-              <s-button
-                slot="primary-action"
-                variant="primary"
-                href={ratesPaths.hub}
-              >
-                Check calculated shipping setup
-              </s-button>
             </s-empty-state>
           )}
         </s-table-body>
