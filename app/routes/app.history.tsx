@@ -14,7 +14,6 @@ import {
   useSearchParams,
   type LoaderFunctionArgs,
 } from "react-router";
-import { MarketsDashboard } from "../components/markets-dashboard";
 import {
   findCustomers,
   getCustomerNames,
@@ -30,19 +29,12 @@ import {
   listCarrierRequests,
   listHistoryDataRequests,
 } from "../models/checkout-history.server";
-import { getMarketsDashboardData } from "../models/market-readiness.server";
 import { ratesPaths } from "../models/calculated-rates";
 import { requireRatesStore } from "../models/rates-access.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { admin, store } = await requireRatesStore(request);
   const filters = historyFilters(new URL(request.url).searchParams);
-  const marketsPromise = getMarketsDashboardData(
-    admin.graphql,
-    store.shopDomain,
-    undefined,
-    store.carrierServiceId,
-  );
   const canSearchCustomer =
     filters.search.length >= 2 && !/^[0-9a-f-]{8,}$/i.test(filters.search);
   const matches = canSearchCustomer
@@ -50,9 +42,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     : [];
   const matchingCustomers =
     matches?.flatMap(({ id }) => id.split("/").at(-1) ?? []) ?? [];
-  const [history, markets, dataRequests] = await Promise.all([
+  const [history, dataRequests] = await Promise.all([
     listCarrierRequests(store.id, filters, matchingCustomers),
-    marketsPromise,
     listHistoryDataRequests(store.id),
   ]);
   const names = await getCustomerNames(
@@ -71,7 +62,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return {
     ...history,
     rows,
-    markets,
     dataRequests,
     search,
     from,
@@ -108,11 +98,6 @@ export default function CheckoutHistoryPage() {
           View Carrier Service requests from the last 30 days. Dates and times
           use UTC.
         </s-paragraph>
-        <MarketsDashboard
-          data={history.markets}
-          refreshing={refreshing}
-          onRefresh={() => revalidator.revalidate()}
-        />
         <HistoryList
           key={JSON.stringify([history.search, history.from, history.to])}
           history={history}
