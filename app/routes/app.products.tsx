@@ -214,6 +214,7 @@ export default function Products() {
   const busy = fetcher.state !== "idle";
   const result = fetcher.data;
 
+  useEffect(() => setQuery(query), [query]);
   useEffect(() => {
     if (
       search.trim() === query ||
@@ -386,10 +387,10 @@ export default function Products() {
               </IndexTableFilters>
               <IndexTableFilterChips
                 filters={
-                  search
+                  query
                     ? [
                         {
-                          label: `Search: ${search}`,
+                          label: `Search: ${query}`,
                           onRemove: () => {
                             setQuery("");
                             setSearch({});

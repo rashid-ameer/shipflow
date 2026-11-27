@@ -100,6 +100,31 @@ export default function CombinedRatesPage() {
   const busy = fetcher.state !== "idle";
   const selected = checked.filter((id) => rows.some((row) => row.id === id));
   const manualOrder = sort === "priority" && !search && status === "all";
+  const appliedFilters = [
+    ...(search
+      ? [
+          {
+            label: `Search: ${search}`,
+            onRemove: () => {
+              setQuery("");
+              setChecked([]);
+              setParams(filter("", status, sort));
+            },
+          },
+        ]
+      : []),
+    ...(status !== "all"
+      ? [
+          {
+            label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
+            onRemove: () => {
+              setChecked([]);
+              setParams(filter(query, "all", sort));
+            },
+          },
+        ]
+      : []),
+  ];
   function filter(q: string, filterStatus: string, order: string, target = 1) {
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
@@ -108,6 +133,7 @@ export default function CombinedRatesPage() {
     if (target > 1) params.set("page", String(target));
     return params;
   }
+  useEffect(() => setQuery(search), [search]);
   useEffect(() => {
     if (query.trim() === search) return;
     const debounce = window.setTimeout(() => {
@@ -184,38 +210,38 @@ export default function CombinedRatesPage() {
             setParams(filter(search, status, sort, page + 1));
           }}
           filters={
-            selected.length > 0 ? (
-              <IndexTableBulkActions
-                count={selected.length}
-                total={rows.length}
-              >
-                <s-button
-                  disabled={busy || !connected}
-                  onClick={() => submit("activate", selected)}
+            <>
+              {selected.length > 0 ? (
+                <IndexTableBulkActions
+                  count={selected.length}
+                  total={rows.length}
                 >
-                  Set active
-                </s-button>
-                <s-button
-                  disabled={busy}
-                  onClick={() => submit("deactivate", selected)}
-                >
-                  Set inactive
-                </s-button>
-                <s-button
-                  tone="critical"
-                  disabled={busy}
-                  commandFor="delete-combined-rates"
-                  command="--show"
-                  onClick={() => {
-                    setDeleteError(undefined);
-                    setConfirmation(selected);
-                  }}
-                >
-                  Delete selected
-                </s-button>
-              </IndexTableBulkActions>
-            ) : total > 0 ? (
-              <>
+                  <s-button
+                    disabled={busy || !connected}
+                    onClick={() => submit("activate", selected)}
+                  >
+                    Set active
+                  </s-button>
+                  <s-button
+                    disabled={busy}
+                    onClick={() => submit("deactivate", selected)}
+                  >
+                    Set inactive
+                  </s-button>
+                  <s-button
+                    tone="critical"
+                    disabled={busy}
+                    commandFor="delete-combined-rates"
+                    command="--show"
+                    onClick={() => {
+                      setDeleteError(undefined);
+                      setConfirmation(selected);
+                    }}
+                  >
+                    Delete selected
+                  </s-button>
+                </IndexTableBulkActions>
+              ) : total > 0 ? (
                 <IndexTableFilters columns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))">
                   <s-search-field
                     label="Search combined rates"
@@ -253,51 +279,16 @@ export default function CombinedRatesPage() {
                     <s-option value="name">Name</s-option>
                   </s-select>
                 </IndexTableFilters>
-                <IndexTableFilterChips
-                  filters={[
-                    ...(search
-                      ? [
-                          {
-                            label: `Search: ${search}`,
-                            onRemove: () => {
-                              setQuery("");
-                              setChecked([]);
-                              setParams(filter("", status, sort));
-                            },
-                          },
-                        ]
-                      : []),
-                    ...(status !== "all"
-                      ? [
-                          {
-                            label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
-                            onRemove: () => {
-                              setChecked([]);
-                              setParams(filter(query, "all", sort));
-                            },
-                          },
-                        ]
-                      : []),
-                    ...(sort !== "priority"
-                      ? [
-                          {
-                            label: "Sort: Name",
-                            onRemove: () => {
-                              setChecked([]);
-                              setParams(filter(query, status, "priority"));
-                            },
-                          },
-                        ]
-                      : []),
-                  ]}
-                  onClearAll={() => {
-                    setQuery("");
-                    setChecked([]);
-                    setParams({});
-                  }}
-                />
-              </>
-            ) : null
+              ) : null}
+              <IndexTableFilterChips
+                filters={appliedFilters}
+                onClearAll={() => {
+                  setQuery("");
+                  setChecked([]);
+                  setParams(filter("", "all", sort));
+                }}
+              />
+            </>
           }
         >
           <s-table-header-row>
@@ -447,7 +438,7 @@ export default function CombinedRatesPage() {
                   onClick={() => {
                     setQuery("");
                     setChecked([]);
-                    setParams({});
+                    setParams(filter("", "all", sort));
                   }}
                 >
                   Clear filters

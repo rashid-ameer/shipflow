@@ -82,6 +82,31 @@ export default function ScenariosPage() {
   const busy = fetcher.state !== "idle";
   const selection = selected.filter((id) => rows.some((row) => row.id === id));
   const allSelected = rows.length > 0 && rows.length === selection.length;
+  const appliedFilters = [
+    ...(search
+      ? [
+          {
+            label: `Search: ${search}`,
+            onRemove: () => {
+              setQuery("");
+              setSelected([]);
+              setParams(lookup("", status));
+            },
+          },
+        ]
+      : []),
+    ...(status !== "all"
+      ? [
+          {
+            label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
+            onRemove: () => {
+              setSelected([]);
+              setParams(lookup(search, "all"));
+            },
+          },
+        ]
+      : []),
+  ];
 
   function lookup(q: string, value: string, targetPage = 1) {
     const params = new URLSearchParams();
@@ -90,6 +115,7 @@ export default function ScenariosPage() {
     if (targetPage > 1) params.set("page", String(targetPage));
     return params;
   }
+  useEffect(() => setQuery(search), [search]);
   useEffect(() => {
     if (query.trim() === search) return;
     const timeout = window.setTimeout(() => {
@@ -168,36 +194,36 @@ export default function ScenariosPage() {
             setParams(lookup(search, status, page + 1));
           }}
           filters={
-            selection.length > 0 ? (
-              <IndexTableBulkActions
-                count={selection.length}
-                total={rows.length}
-              >
-                <s-button
-                  variant="secondary"
-                  disabled={busy || !connected}
-                  onClick={() => submit("activate")}
+            <>
+              {selection.length > 0 ? (
+                <IndexTableBulkActions
+                  count={selection.length}
+                  total={rows.length}
                 >
-                  Set active
-                </s-button>
-                <s-button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => submit("deactivate")}
-                >
-                  Set inactive
-                </s-button>
-                <s-button
-                  variant="secondary"
-                  tone="critical"
-                  disabled={busy}
-                  onClick={() => modal.current?.showOverlay()}
-                >
-                  Delete selected
-                </s-button>
-              </IndexTableBulkActions>
-            ) : total > 0 ? (
-              <>
+                  <s-button
+                    variant="secondary"
+                    disabled={busy || !connected}
+                    onClick={() => submit("activate")}
+                  >
+                    Set active
+                  </s-button>
+                  <s-button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => submit("deactivate")}
+                  >
+                    Set inactive
+                  </s-button>
+                  <s-button
+                    variant="secondary"
+                    tone="critical"
+                    disabled={busy}
+                    onClick={() => modal.current?.showOverlay()}
+                  >
+                    Delete selected
+                  </s-button>
+                </IndexTableBulkActions>
+              ) : total > 0 ? (
                 <IndexTableFilters columns="minmax(0, 2fr) minmax(0, 1fr)">
                   <s-search-field
                     label="Search scenarios"
@@ -222,40 +248,16 @@ export default function ScenariosPage() {
                     <s-option value="inactive">Inactive</s-option>
                   </s-select>
                 </IndexTableFilters>
-                <IndexTableFilterChips
-                  filters={[
-                    ...(search
-                      ? [
-                          {
-                            label: `Search: ${search}`,
-                            onRemove: () => {
-                              setQuery("");
-                              setSelected([]);
-                              setParams(lookup("", status));
-                            },
-                          },
-                        ]
-                      : []),
-                    ...(status !== "all"
-                      ? [
-                          {
-                            label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
-                            onRemove: () => {
-                              setSelected([]);
-                              setParams(lookup(search, "all"));
-                            },
-                          },
-                        ]
-                      : []),
-                  ]}
-                  onClearAll={() => {
-                    setQuery("");
-                    setSelected([]);
-                    setParams({});
-                  }}
-                />
-              </>
-            ) : null
+              ) : null}
+              <IndexTableFilterChips
+                filters={appliedFilters}
+                onClearAll={() => {
+                  setQuery("");
+                  setSelected([]);
+                  setParams({});
+                }}
+              />
+            </>
           }
         >
           <s-table-header-row>
