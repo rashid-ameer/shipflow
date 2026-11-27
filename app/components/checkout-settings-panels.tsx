@@ -25,6 +25,10 @@ export const settingsTabs = {
 };
 export type SettingsTab = keyof typeof settingsTabs;
 
+export function settingsTabPath(tab: SettingsTab) {
+  return `/app/settings?tab=${tab}`;
+}
+
 export function SettingsPanel({
   title,
   children,

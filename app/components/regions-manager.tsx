@@ -25,18 +25,14 @@ const newRegion = (): RegionEditor => ({
 
 export function RegionsManager({
   regions,
-  showCreateAction = true,
-  autoOpenCreate = false,
+  inlineCreateAction = false,
 }: {
   regions: Regions;
-  showCreateAction?: boolean;
-  autoOpenCreate?: boolean;
+  inlineCreateAction?: boolean;
 }) {
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
-  const [draft, edit] = useState<RegionEditor | null>(() =>
-    autoOpenCreate ? newRegion() : null,
-  );
+  const [draft, edit] = useState<RegionEditor | null>(null);
   const [target, confirm] = useState<Regions[number] | null>(null);
   const [error, setError] = useState<string>();
   const editor = useRef<HTMLElementTagNameMap["s-modal"]>(null);
@@ -73,19 +69,8 @@ export function RegionsManager({
     edit(newRegion());
   }
 
-  return (
-    <>
-      {showCreateAction ? (
-        <s-button
-          slot="primary-action"
-          variant="primary"
-          disabled={busy || editing || deleting}
-          onClick={startCreate}
-        >
-          Create region
-        </s-button>
-      ) : null}
-      <IndexTableSection label="Regions">
+  const table = (
+    <IndexTableSection label="Regions">
         <s-table-header-row>
           <s-table-header listSlot="primary">Region</s-table-header>
           <s-table-header listSlot="labeled">Coverage</s-table-header>
@@ -146,7 +131,43 @@ export function RegionsManager({
             </s-empty-state>
           ) : null}
         </s-table-body>
-      </IndexTableSection>
+    </IndexTableSection>
+  );
+
+  return (
+    <>
+      {inlineCreateAction ? (
+        <s-stack direction="block" gap="base">
+          <s-stack
+            direction="inline"
+            gap="base"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <s-heading>Regions</s-heading>
+            <s-button
+              variant="primary"
+              disabled={busy || editing || deleting}
+              onClick={startCreate}
+            >
+              Create region
+            </s-button>
+          </s-stack>
+          {table}
+        </s-stack>
+      ) : (
+        <>
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            disabled={busy || editing || deleting}
+            onClick={startCreate}
+          >
+            Create region
+          </s-button>
+          {table}
+        </>
+      )}
       {regions.length > 0 && !canDelete ? (
         <s-paragraph>Keep at least one named region.</s-paragraph>
       ) : null}

@@ -47,7 +47,6 @@ import { UpsConnectionPanel } from "../components/carrier-connection";
 import prisma from "../db.server";
 import { getMarketsDashboardData } from "../models/market-readiness.server";
 import { listRegions } from "../models/calculated-rates.server";
-import { ratesPaths } from "../models/calculated-rates";
 import {
   defaultAppearance,
   defaultShipping,
@@ -391,26 +390,7 @@ export default function Settings() {
           />
         ) : null}
         {settings.tab === "regions" && settings.regions ? (
-          <s-stack direction="block" gap="base">
-            <s-stack
-              direction="inline"
-              gap="base"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <s-heading>Regions</s-heading>
-              <s-button
-                variant="primary"
-                href={`${ratesPaths.regions}?create=1`}
-              >
-                Create region
-              </s-button>
-            </s-stack>
-            <RegionsManager
-              regions={settings.regions}
-              showCreateAction={false}
-            />
-          </s-stack>
+          <RegionsManager regions={settings.regions} inlineCreateAction />
         ) : null}
         {settings.tab === "sync" ? (
           <ProductSyncSettings {...settings.sync} />

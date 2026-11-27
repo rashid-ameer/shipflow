@@ -34,6 +34,7 @@ import {
   saveScenario,
 } from "../models/calculated-rates.server";
 import { requireRatesStore } from "../models/rates-access.server";
+import { settingsTabPath } from "../components/checkout-settings-panels";
 import { getStorePricingContext } from "../models/carrier-shopify.server";
 import { getUpsConnection } from "../models/live-carrier.server";
 import type { ShippingConfiguration } from "../models/checkout-settings";
@@ -525,7 +526,10 @@ function ScenarioEditor({ initial }: { initial: Initial }) {
               );
             })}
             <s-stack direction="inline" justifyContent="end">
-              <s-button variant="secondary" href={ratesPaths.regions}>
+              <s-button
+                variant="secondary"
+                href={settingsTabPath("regions")}
+              >
                 Manage regions
               </s-button>
             </s-stack>

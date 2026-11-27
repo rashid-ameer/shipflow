@@ -1,6 +1,5 @@
 import {
   useLoaderData,
-  useSearchParams,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
@@ -61,16 +60,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function RegionsPage() {
   const { regions } = useLoaderData<typeof loader>();
-  const [searchParams] = useSearchParams();
   return (
     <s-page heading="Shipping regions">
       <s-link slot="breadcrumb-actions" href={ratesPaths.hub}>
         Rates
       </s-link>
-      <RegionsManager
-        regions={regions}
-        autoOpenCreate={searchParams.get("create") === "1"}
-      />
+      <RegionsManager regions={regions} />
     </s-page>
   );
 }

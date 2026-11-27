@@ -22,6 +22,7 @@ import {
   RateFormError,
 } from "../models/calculated-rates.server";
 import { requireRatesStore } from "../models/rates-access.server";
+import { settingsTabPath } from "../components/checkout-settings-panels";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { store } = await requireRatesStore(request);
@@ -128,7 +129,7 @@ export default function ScenariosPage() {
       <s-link slot="breadcrumb-actions" href={ratesPaths.hub}>
         Rates
       </s-link>
-      <s-button slot="secondary-actions" href={ratesPaths.regions}>
+      <s-button slot="secondary-actions" href={settingsTabPath("regions")}>
         Manage regions
       </s-button>
       <s-button
