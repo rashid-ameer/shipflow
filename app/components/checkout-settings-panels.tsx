@@ -29,27 +29,58 @@ export type SettingsTab = keyof typeof settingsTabs;
 export function SettingsTabs({ current }: { current: SettingsTab }) {
   const navigate = useNavigate();
   return (
-    <nav aria-label="Shipping settings">
-      <s-stack direction="inline" gap="small">
-        {Object.entries(settingsTabs).map(([tab, name]) => (
-          <s-button
-            key={tab}
-            variant={current === tab ? "secondary" : "tertiary"}
-            aria-current={current === tab ? "page" : undefined}
-            onClick={() => {
-              if (current !== tab)
-                void navigate(
-                  tab === "basic"
-                    ? "/app/settings"
-                    : `/app/settings?tab=${tab}`,
-                );
-            }}
-          >
-            {name}
-          </s-button>
-        ))}
-      </s-stack>
-    </nav>
+    <s-box
+      background="base"
+      border="base base solid"
+      borderRadius="base"
+      padding="base"
+    >
+      <nav aria-label="Settings sections">
+        <s-stack direction="block" gap="small-100">
+          {Object.entries(settingsTabs).map(([tab, name]) => (
+            <s-button
+              key={tab}
+              variant={current === tab ? "secondary" : "tertiary"}
+              aria-current={current === tab ? "page" : undefined}
+              onClick={() => {
+                if (current !== tab)
+                  void navigate(
+                    tab === "basic"
+                      ? "/app/settings"
+                      : `/app/settings?tab=${tab}`,
+                  );
+              }}
+            >
+              {name}
+            </s-button>
+          ))}
+        </s-stack>
+      </nav>
+    </s-box>
+  );
+}
+
+export function SettingsPageLayout({
+  current,
+  children,
+}: {
+  current?: SettingsTab;
+  children: ReactNode;
+}) {
+  if (!current) return <>{children}</>;
+  return (
+    <s-query-container containerName="settings">
+      <s-grid
+        gridTemplateColumns="@container settings (inline-size > 700px) 220px minmax(0, 1fr), 1fr"
+        gap="base"
+        alignItems="start"
+      >
+        <SettingsTabs current={current} />
+        <s-stack direction="block" gap="base">
+          {children}
+        </s-stack>
+      </s-grid>
+    </s-query-container>
   );
 }
 

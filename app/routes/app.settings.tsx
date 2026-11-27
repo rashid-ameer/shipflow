@@ -63,7 +63,7 @@ import {
   AppearanceSettings,
   MapsSettings,
   ProductSyncSettings,
-  SettingsTabs,
+  SettingsPageLayout,
   ShippingSettings,
   settingsTabs,
   type SettingsTab,
@@ -379,77 +379,78 @@ export default function Settings() {
   if (settings.tab === "basic")
     return <SettingsForm key={settings.mode} settings={settings} />;
   return (
-    <s-page heading="Settings">
-      <SettingsTabs current={settings.tab} />
-      {settings.tab === "markets" && settings.markets ? (
-        <MarketsDashboard
-          data={settings.markets}
-          refreshing={revalidator.state !== "idle"}
-          onRefresh={() => void revalidator.revalidate()}
-        />
-      ) : null}
-      {settings.tab === "regions" && settings.regions ? (
-        <RegionsManager regions={settings.regions} />
-      ) : null}
-      {settings.tab === "sync" ? (
-        <ProductSyncSettings {...settings.sync} />
-      ) : null}
-      {settings.tab === "shipping" ? (
-        <ShippingSettings
-          initial={settings.shipping}
-          discounted={settings.discounted}
-          currency={
-            settings.shopLocale?.available
-              ? settings.shopLocale.currencyCode
-              : undefined
-          }
-        />
-      ) : null}
-      {settings.tab === "appearance" ? (
-        <AppearanceSettings initial={settings.appearance} />
-      ) : null}
-      {settings.tab === "integrations" ? (
-        <MapsSettings connected={settings.mapsConnected} />
-      ) : null}
-      {settings.tab === "carriers" ? (
-        <>
-          <BorderedCard heading="UPS">
-            <s-paragraph>
-              Create a UPS application with Rating access and link your UPS
-              shipper account.
-            </s-paragraph>
-            <s-link
-              href="https://developer.ups.com/get-started"
-              target="_blank"
-            >
-              UPS setup instructions
-            </s-link>
-            <UpsConnectionPanel connection={settings.connection} />
-          </BorderedCard>
-          <BorderedCard heading="Other carriers">
-            <s-grid
-              gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 160px), 1fr))"
-              gap="base"
-            >
-              {Object.entries(carriers)
-                .filter(([code]) => code !== "ups")
-                .map(([code, name]) => (
-                  <s-box
-                    key={code}
-                    padding="base"
-                    border="base base solid"
-                    borderRadius="base"
-                  >
-                    <s-stack gap="small">
-                      <s-text type="strong">{name}</s-text>
-                      <s-badge>Unavailable</s-badge>
-                    </s-stack>
-                  </s-box>
-                ))}
-            </s-grid>
-          </BorderedCard>
-        </>
-      ) : null}
+    <s-page heading="Settings" inlineSize="base">
+      <SettingsPageLayout current={settings.tab}>
+        {settings.tab === "markets" && settings.markets ? (
+          <MarketsDashboard
+            data={settings.markets}
+            refreshing={revalidator.state !== "idle"}
+            onRefresh={() => void revalidator.revalidate()}
+          />
+        ) : null}
+        {settings.tab === "regions" && settings.regions ? (
+          <RegionsManager regions={settings.regions} />
+        ) : null}
+        {settings.tab === "sync" ? (
+          <ProductSyncSettings {...settings.sync} />
+        ) : null}
+        {settings.tab === "shipping" ? (
+          <ShippingSettings
+            initial={settings.shipping}
+            discounted={settings.discounted}
+            currency={
+              settings.shopLocale?.available
+                ? settings.shopLocale.currencyCode
+                : undefined
+            }
+          />
+        ) : null}
+        {settings.tab === "appearance" ? (
+          <AppearanceSettings initial={settings.appearance} />
+        ) : null}
+        {settings.tab === "integrations" ? (
+          <MapsSettings connected={settings.mapsConnected} />
+        ) : null}
+        {settings.tab === "carriers" ? (
+          <>
+            <BorderedCard heading="UPS">
+              <s-paragraph>
+                Create a UPS application with Rating access and link your UPS
+                shipper account.
+              </s-paragraph>
+              <s-link
+                href="https://developer.ups.com/get-started"
+                target="_blank"
+              >
+                UPS setup instructions
+              </s-link>
+              <UpsConnectionPanel connection={settings.connection} />
+            </BorderedCard>
+            <BorderedCard heading="Other carriers">
+              <s-grid
+                gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 160px), 1fr))"
+                gap="base"
+              >
+                {Object.entries(carriers)
+                  .filter(([code]) => code !== "ups")
+                  .map(([code, name]) => (
+                    <s-box
+                      key={code}
+                      padding="base"
+                      border="base base solid"
+                      borderRadius="base"
+                    >
+                      <s-stack gap="small">
+                        <s-text type="strong">{name}</s-text>
+                        <s-badge>Unavailable</s-badge>
+                      </s-stack>
+                    </s-box>
+                  ))}
+              </s-grid>
+            </BorderedCard>
+          </>
+        ) : null}
+      </SettingsPageLayout>
     </s-page>
   );
 }
@@ -588,8 +589,7 @@ function SettingsForm({
   };
 
   return (
-    <s-page heading="Settings">
-      {isCcs ? <SettingsTabs current="basic" /> : null}
+    <s-page heading="Settings" inlineSize="base">
       <ui-save-bar id={SAVE_BAR_ID}>
         <button
           type="button"
@@ -604,7 +604,7 @@ function SettingsForm({
         </button>
       </ui-save-bar>
 
-      <s-stack direction="block" gap="base">
+      <SettingsPageLayout current={isCcs ? "basic" : undefined}>
         {saveError ? (
           <s-banner tone="critical" heading="Settings were not saved">
             <s-paragraph>{saveError}</s-paragraph>
@@ -681,7 +681,7 @@ function SettingsForm({
             </s-stack>
           </s-stack>
         </BorderedCard>
-      </s-stack>
+      </SettingsPageLayout>
 
       <s-modal
         id="settings-switch-mode-modal"
