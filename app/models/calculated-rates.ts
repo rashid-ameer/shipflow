@@ -242,6 +242,45 @@ export const countries = Array.from({ length: 676 }, (_, index) =>
   .sort((a, b) => a.label.localeCompare(b.label));
 const countryCodes = new Set(countries.map(({ code }) => code));
 
+export const regionCountries = [
+  { code: "US", label: "United States" },
+  { code: "CA", label: "Canada" },
+  { code: "GB", label: "United Kingdom" },
+  { code: "AU", label: "Australia" },
+  { code: "DE", label: "Germany" },
+  { code: "FR", label: "France" },
+  { code: "NL", label: "Netherlands" },
+  { code: "BE", label: "Belgium" },
+  { code: "ES", label: "Spain" },
+  { code: "IT", label: "Italy" },
+  { code: "MX", label: "Mexico" },
+  { code: "JP", label: "Japan" },
+];
+
+export const regionProvinces: Record<
+  string,
+  { code: string; label: string }[]
+> = {
+  US: [
+    { code: "CA", label: "California" },
+    { code: "NY", label: "New York" },
+    { code: "TX", label: "Texas" },
+    { code: "FL", label: "Florida" },
+    { code: "WA", label: "Washington" },
+  ],
+  CA: [
+    { code: "ON", label: "Ontario" },
+    { code: "QC", label: "Quebec" },
+    { code: "BC", label: "British Columbia" },
+    { code: "AB", label: "Alberta" },
+  ],
+  AU: [
+    { code: "NSW", label: "New South Wales" },
+    { code: "VIC", label: "Victoria" },
+    { code: "QLD", label: "Queensland" },
+  ],
+};
+
 export function matchRegion(regions: Region[], destination: Destination) {
   let broad: Region | undefined;
   let narrowExists = false;

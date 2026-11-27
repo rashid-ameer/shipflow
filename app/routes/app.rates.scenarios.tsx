@@ -186,6 +186,7 @@ export default function ScenariosPage() {
               </s-button>
               <s-button
                 variant="secondary"
+                tone="critical"
                 disabled={busy}
                 onClick={() => modal.current?.showOverlay()}
               >

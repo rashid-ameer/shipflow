@@ -199,6 +199,7 @@ export default function CombinedRatesPage() {
                 Set inactive
               </s-button>
               <s-button
+                tone="critical"
                 disabled={busy}
                 commandFor="delete-combined-rates"
                 command="--show"

@@ -22,3 +22,8 @@ Use the skills in `.agents/skills/` when their task applies:
 - Treat shipping-rule evaluation as domain logic, separate from display components. Keep its inputs and outputs explicit so it can be tested without rendering a page.
 - For slow pages, measure the bottleneck first. Load independent server data concurrently; stream noncritical data behind a `Suspense` boundary when React Router supports it in the installed version. Use lazy imports for genuinely heavy, optional UI.
 - Use Polaris web components for embedded admin UI. The current choice cards are UI choices, not billing plans; do not introduce Lite/Pro billing flows unless requested.
+
+## UI conventions
+
+- Align form fields at their start; optional detail text under one field must not shift the other fields.
+- Use `tone="critical"` for destructive actions such as `Delete` and `Remove`.

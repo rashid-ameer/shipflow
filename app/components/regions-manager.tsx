@@ -1,3 +1,4 @@
+import { CountryCheckboxDropdown } from "./country-checkbox-dropdown";
 import { IndexTableRowActions, IndexTableSection } from "./index-table";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
@@ -14,13 +15,25 @@ type Regions = Awaited<ReturnType<typeof listRegions>>;
 type RegionEditor = {
   id: string;
   name: string;
-  coverage: { country: string; provinces: string }[];
+  countries: string[];
+  provinces: Record<string, string[]>;
 };
 
 const newRegion = (): RegionEditor => ({
   id: "",
   name: "",
-  coverage: [{ country: "", provinces: "" }],
+  countries: [],
+  provinces: {},
+});
+
+const coverageToEditor = (coverage: Coverage[]) => ({
+  countries: coverage.map(({ country }) => country),
+  provinces: coverage.reduce<Record<string, string[]>>((result, entry) => {
+    if (entry.provinces.length > 0) {
+      result[entry.country] = entry.provinces;
+    }
+    return result;
+  }, {}),
 });
 
 export function RegionsManager({
@@ -69,6 +82,11 @@ export function RegionsManager({
     edit(newRegion());
   }
 
+  const keepOneRegionNotice =
+    regions.length > 0 && !canDelete ? (
+      <s-paragraph>Keep at least one named region.</s-paragraph>
+    ) : null;
+
   const table = (
     <IndexTableSection label="Regions">
         <s-table-header-row>
@@ -98,10 +116,7 @@ export function RegionsManager({
                           edit({
                             id: region.id,
                             name: region.name,
-                            coverage: region.coverage.map((row) => ({
-                              country: row.country,
-                              provinces: row.provinces.join(", "),
-                            })),
+                            ...coverageToEditor(region.coverage),
                           });
                         }}
                       >
@@ -153,6 +168,7 @@ export function RegionsManager({
               Create region
             </s-button>
           </s-stack>
+          {keepOneRegionNotice}
           {table}
         </s-stack>
       ) : (
@@ -165,12 +181,10 @@ export function RegionsManager({
           >
             Create region
           </s-button>
+          {keepOneRegionNotice}
           {table}
         </>
       )}
-      {regions.length > 0 && !canDelete ? (
-        <s-paragraph>Keep at least one named region.</s-paragraph>
-      ) : null}
       <s-modal
         id="region-editor-modal"
         ref={editor as never}
@@ -188,84 +202,16 @@ export function RegionsManager({
               disabled={busy}
               onInput={(e) => edit({ ...draft, name: e.currentTarget.value })}
             />
-            {draft.coverage.map((entry, index) => (
-              <s-grid
-                key={index}
-                gridTemplateColumns="minmax(0, 1fr) minmax(0, 1fr) auto"
-                gap="base"
-                alignItems="end"
-              >
-                <s-select
-                  label="Country"
-                  value={entry.country}
-                  placeholder="Choose a country"
-                  required
-                  disabled={busy}
-                  onChange={(e) =>
-                    edit({
-                      ...draft,
-                      coverage: draft.coverage.map((item, at) =>
-                        at === index
-                          ? { country: e.currentTarget.value, provinces: "" }
-                          : item,
-                      ),
-                    })
-                  }
-                >
-                  {countries.map(({ code, label }) => (
-                    <s-option key={code} value={code}>
-                      {label}
-                    </s-option>
-                  ))}
-                </s-select>
-                <s-text-field
-                  label="Province or state codes"
-                  value={entry.provinces}
-                  disabled={busy}
-                  placeholder="All provinces"
-                  details="Optional. Enter codes such as ON, QC."
-                  onInput={(e) =>
-                    edit({
-                      ...draft,
-                      coverage: draft.coverage.map((item, at) =>
-                        at === index
-                          ? { ...item, provinces: e.currentTarget.value }
-                          : item,
-                      ),
-                    })
-                  }
-                />
-                <s-button
-                  variant="tertiary"
-                  disabled={busy || draft.coverage.length <= 1}
-                  onClick={() =>
-                    edit({
-                      ...draft,
-                      coverage: draft.coverage.filter((_, at) => at !== index),
-                    })
-                  }
-                >
-                  Remove
-                </s-button>
-              </s-grid>
-            ))}
-            <s-stack direction="inline" justifyContent="end">
-              <s-button
-                variant="secondary"
-                disabled={busy || draft.coverage.length >= 250}
-                onClick={() =>
-                  edit({
-                    ...draft,
-                    coverage: [
-                      ...draft.coverage,
-                      { country: "", provinces: "" },
-                    ],
-                  })
-                }
-              >
-                Add country
-              </s-button>
-            </s-stack>
+            <CountryCheckboxDropdown
+              id="region-countries"
+              selected={draft.countries}
+              provinces={draft.provinces}
+              disabled={busy}
+              onChange={(codes) => edit({ ...draft, countries: codes })}
+              onProvincesChange={(provinces) =>
+                edit({ ...draft, provinces })
+              }
+            />
           </s-stack>
         ) : null}
         <s-button
@@ -281,11 +227,7 @@ export function RegionsManager({
           slot="primary-action"
           variant="primary"
           loading={busy}
-          disabled={
-            busy ||
-            !draft?.name.trim() ||
-            draft.coverage.some((entry) => !entry.country)
-          }
+          disabled={busy || !draft?.name.trim() || draft.countries.length === 0}
           onClick={() => {
             if (!draft) return;
             fetcher.submit(
@@ -294,9 +236,9 @@ export function RegionsManager({
                 name: draft.name,
                 id: draft.id,
                 coverage: JSON.stringify(
-                  draft.coverage.map((item) => ({
-                    country: item.country,
-                    provinces: item.provinces.split(","),
+                  draft.countries.map((country) => ({
+                    country,
+                    provinces: draft.provinces[country] ?? [],
                   })),
                 ),
               },
