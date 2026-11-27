@@ -5,7 +5,7 @@ import {
   IndexTableRowActions,
   IndexTableSection,
 } from "../components/index-table";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   useLoaderData,
@@ -189,6 +189,9 @@ function HistoryList({
   const [, setParams] = useSearchParams();
   const [query, setQuery] = useState(history.search);
   const [draftRange, setDraftRange] = useState<string>();
+  const dateRangePopover = useRef<HTMLElementTagNameMap["s-popover"] | null>(
+    null,
+  );
   const [from, to = ""] =
     draftRange === undefined
       ? [history.from, history.to]
@@ -226,6 +229,9 @@ function HistoryList({
     setParams(
       historyFilterParams({ search: query, from: start, to: end }),
     );
+    (
+      dateRangePopover.current as unknown as { hideOverlay?: () => void } | null
+    )?.hideOverlay?.();
   }
   function go(page: number) {
     setParams(
@@ -296,34 +302,28 @@ function HistoryList({
                 >
                   {rangeLabel || "Date range"}
                 </s-button>
-                <s-popover id="history-date-range" inlineSize="300px">
+                <s-popover
+                  ref={dateRangePopover}
+                  id="history-date-range"
+                  inlineSize="300px"
+                >
                   <s-box padding="small">
-                    <s-stack gap="small">
-                      <s-date-picker
-                        type="range"
-                        allow={`${history.min}--${history.max}`}
-                        defaultView={(
-                          history.from ||
-                          history.to ||
-                          history.max
-                        ).slice(0, 7)}
-                        value={
-                          draftRange ??
-                          (from || to ? `${rangeStart}--${rangeEnd}` : "")
-                        }
-                        onInput={(event) =>
-                          applyRange(event.currentTarget.value)
-                        }
-                      />
-                      <s-stack direction="inline" justifyContent="end">
-                        <s-button
-                          commandFor="history-date-range"
-                          command="--hide"
-                        >
-                          Done
-                        </s-button>
-                      </s-stack>
-                    </s-stack>
+                    <s-date-picker
+                      type="range"
+                      allow={`${history.min}--${history.max}`}
+                      defaultView={(
+                        history.from ||
+                        history.to ||
+                        history.max
+                      ).slice(0, 7)}
+                      value={
+                        draftRange ??
+                        (from || to ? `${rangeStart}--${rangeEnd}` : "")
+                      }
+                      onInput={(event) =>
+                        applyRange(event.currentTarget.value)
+                      }
+                    />
                   </s-box>
                 </s-popover>
               </s-stack>
