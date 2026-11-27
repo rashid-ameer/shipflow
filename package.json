@@ -11,6 +11,7 @@
     "test:m2": "vite-node tests/shipping-settings.test.ts && vite-node tests/checkout-decision.test.ts && vite-node tests/m2-persistence.test.ts",
     "test:m3": "vite-node tests/delivery-customization.test.ts && vite-node tests/m3-persistence.test.ts",
     "test:m4": "vite-node tests/calculated-rates.test.ts && vite-node tests/m4-carrier-persistence.test.ts",
+    "test:simulator": "vite-node tests/simulator-scenario-flow.test.ts",
     "test:m6": "vite-node tests/cart-product-pricing.test.ts && vite-node tests/m6-pricing-persistence.test.ts",
     "test:m7": "vite-node tests/combined-rates.test.ts && vite-node tests/m7-combination-persistence.test.ts",
     "test:m8": "vite-node tests/m8-catalog-packing.test.ts",

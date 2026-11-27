@@ -751,7 +751,7 @@ function Simulator({ initial }: { initial: SimulatorContext }) {
                   const checked = event.currentTarget.checked;
                   setSelected((previous) =>
                     checked
-                      ? [...previous, id]
+                      ? [...new Set([...previous, id])]
                       : previous.filter((value) => value !== id),
                   );
                 }}

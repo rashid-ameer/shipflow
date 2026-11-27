@@ -57,10 +57,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const creating = id === "new";
   if (!creating && (!id || !rateIdPattern.test(id)))
     throw new Response("Scenario not found.", { status: 404 });
-  const [saved, context, regions, connection] = await Promise.all([
+  const [saved, context, connection] = await Promise.all([
     creating ? null : getScenario(store.id, id!),
     loadRatesContext(admin.graphql, store),
-    listRegions(store.id),
     getUpsConnection(store.id),
   ]);
   if (!creating && !saved)
@@ -70,7 +69,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     creating,
     revision: saved?.revision ?? null,
     draft: saved?.draft ?? empty,
-    regions,
+    regions: await listRegions(store.id),
     connection,
     currency: context?.currency ?? null,
     weightUnit: store.settings.weightUnit,
