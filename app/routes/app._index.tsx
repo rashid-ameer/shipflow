@@ -363,23 +363,25 @@ export default function Dashboard() {
           </BorderedCard>
         ) : (
           <BorderedCard heading="Activity">
-            <s-grid
-              gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 180px), 1fr))"
-              gap="base"
-            >
-              <Metric
-                label="Scenarios"
-                value={String(dashboard.rates?.scenarios ?? 0)}
-              />
-              <Metric
-                label="Active scenarios with rates"
-                value={String(dashboard.rates?.active ?? 0)}
-              />
-              <Metric
-                label="Checkout tests"
-                value={String(dashboard.rates?.tests ?? 0)}
-              />
-            </s-grid>
+            <s-query-container containerName="activity">
+              <s-grid
+                gridTemplateColumns="@container activity (inline-size > 575px) 1fr 1fr 1fr, 1fr"
+                gap="base"
+              >
+                <Metric
+                  label="Scenarios"
+                  value={String(dashboard.rates?.scenarios ?? 0)}
+                />
+                <Metric
+                  label="Active scenarios with rates"
+                  value={String(dashboard.rates?.active ?? 0)}
+                />
+                <Metric
+                  label="Checkout tests"
+                  value={String(dashboard.rates?.tests ?? 0)}
+                />
+              </s-grid>
+            </s-query-container>
           </BorderedCard>
         )}
 
