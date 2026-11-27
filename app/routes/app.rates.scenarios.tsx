@@ -384,11 +384,6 @@ export default function ScenariosPage() {
             ) : null}
           </s-table-body>
         </IndexTableSection>
-        {pageCount > 1 ? (
-          <s-text color="subdued">
-            {page} of {pageCount}
-          </s-text>
-        ) : null}
       </s-stack>
       <s-modal
         id="delete-scenarios-modal"

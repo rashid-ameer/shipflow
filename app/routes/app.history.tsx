@@ -471,11 +471,6 @@ function HistoryList({
           )}
         </s-table-body>
       </IndexTableSection>
-      {history.pageCount > 1 ? (
-        <s-text color="subdued">
-          {history.page} of {history.pageCount}
-        </s-text>
-      ) : null}
     </>
   );
 }

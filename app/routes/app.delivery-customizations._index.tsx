@@ -181,11 +181,6 @@ export default function DeliveryCustomizations() {
             ) : null}
           </s-table-body>
         </IndexTableSection>
-        {totalPages > 1 ? (
-          <s-text color="subdued">
-            {page} of {totalPages}
-          </s-text>
-        ) : null}
       </s-stack>
     </s-page>
   );

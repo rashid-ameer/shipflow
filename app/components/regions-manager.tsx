@@ -100,8 +100,7 @@ export function RegionsManager({
     ) : null;
 
   const table = (
-    <>
-      <IndexTableSection
+    <IndexTableSection
         label="Regions"
         paginate={pageCount > 1}
         hasPreviousPage={currentPage > 1}
@@ -166,13 +165,7 @@ export function RegionsManager({
             </s-empty-state>
           ) : null}
         </s-table-body>
-      </IndexTableSection>
-      {pageCount > 1 ? (
-        <s-text color="subdued">
-          {currentPage} of {pageCount}
-        </s-text>
-      ) : null}
-    </>
+    </IndexTableSection>
   );
 
   return (

@@ -250,8 +250,7 @@ export function CheckoutPricingResults({
                   {selectionLabels[trace.selection]} ·{" "}
                   {roundingLabels[trace.rounding]}
                 </s-paragraph>
-                <>
-                  <IndexTableSection
+                <IndexTableSection
                     label="Price breakdown"
                     paginate={ratePageCount > 1}
                     hasPreviousPage={currentRatePage > 1}
@@ -303,13 +302,7 @@ export function CheckoutPricingResults({
                       </s-table-row>
                     ))}
                     </s-table-body>
-                  </IndexTableSection>
-                  {ratePageCount > 1 ? (
-                    <s-text color="subdued">
-                      {currentRatePage} of {ratePageCount}
-                    </s-text>
-                  ) : null}
-                </>
+                </IndexTableSection>
                 {trace.rates
                   .filter(
                     (rate) =>
@@ -390,8 +383,7 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
             <s-text>Checkout language: {snapshot.locale}</s-text>
           ) : null}
         </s-stack>
-        <>
-          <IndexTableSection
+        <IndexTableSection
             label="Cart items"
             paginate={linePageCount > 1}
             hasPreviousPage={currentLinePage > 1}
@@ -430,18 +422,7 @@ export function CheckoutCartDetails({ snapshot }: { snapshot: CartSnapshot }) {
               </s-table-row>
             ))}
             </s-table-body>
-          </IndexTableSection>
-          {linePageCount > 1 ? (
-            <s-text color="subdued">
-              {currentLinePage} of {linePageCount}
-            </s-text>
-          ) : null}
-        </>
-        {snapshot.extraLines ? (
-          <s-paragraph>
-            {snapshot.extraLines} additional items were included in pricing.
-          </s-paragraph>
-        ) : null}
+        </IndexTableSection>
       </s-stack>
     </BorderedCard>
   );

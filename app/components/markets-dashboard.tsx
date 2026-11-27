@@ -114,8 +114,7 @@ export function MarketsDashboard({
   );
 
   const marketsTable = (
-    <>
-      <IndexTableSection
+    <IndexTableSection
         label="Markets"
         paginate={pageCount > 1}
         hasPreviousPage={currentPage > 1}
@@ -233,13 +232,7 @@ export function MarketsDashboard({
           </s-empty-state>
         ) : null}
       </s-table-body>
-      </IndexTableSection>
-      {pageCount > 1 ? (
-        <s-text color="subdued">
-          {currentPage} of {pageCount}
-        </s-text>
-      ) : null}
-    </>
+    </IndexTableSection>
   );
 
   const marketsDetail =

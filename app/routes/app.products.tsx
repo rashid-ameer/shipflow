@@ -490,9 +490,6 @@ export default function Products() {
             )}
           </s-table-body>
         </IndexTableSection>
-        {count > 0 ? (
-          <s-text color="subdued">{count.toLocaleString()} products</s-text>
-        ) : null}
       </s-stack>
       <s-modal
         id="dimension-mapping"
