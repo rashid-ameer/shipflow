@@ -5,7 +5,7 @@ import {
   IndexTableRowActions,
   IndexTableSection,
 } from "../components/index-table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   useLoaderData,
@@ -22,8 +22,10 @@ import {
   diagnosticsPaths,
   formatPlace,
   historyCustomer,
+  historyFilterParams,
   historyFilters,
   historyTime,
+  parseHistoryRange,
 } from "../models/checkout-history";
 import {
   listCarrierRequests,
@@ -202,16 +204,38 @@ function HistoryList({
         ? rangeStart
         : `${rangeStart} – ${rangeEnd}`
       : "";
-  function go(page: number, includeDraftFilters = false) {
-    const next = new URLSearchParams();
-    const [search, start, end] = includeDraftFilters
-      ? [query.trim(), from, to]
-      : [history.search, history.from, history.to];
-    if (search) next.set("q", search);
-    if (start) next.set("from", start);
-    if (end) next.set("to", end);
-    if (page > 1) next.set("page", String(page));
-    setParams(next);
+  useEffect(() => setQuery(history.search), [history.search]);
+  useEffect(() => setDraftRange(undefined), [history.from, history.to]);
+  useEffect(() => {
+    if (query.trim() === history.search) return;
+    const timeout = window.setTimeout(() => {
+      setParams(
+        historyFilterParams({
+          search: query,
+          from: history.from,
+          to: history.to,
+        }),
+      );
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [query, history.search, history.from, history.to, setParams]);
+  function applyRange(value: string) {
+    setDraftRange(value);
+    const { from: start, to: end } = parseHistoryRange(value);
+    if (!start || !end || start > end) return;
+    setParams(
+      historyFilterParams({ search: query, from: start, to: end }),
+    );
+  }
+  function go(page: number) {
+    setParams(
+      historyFilterParams({
+        search: history.search,
+        from: history.from,
+        to: history.to,
+        page,
+      }),
+    );
   }
   return (
     <>
@@ -285,7 +309,7 @@ function HistoryList({
                       draftRange ??
                       (from || to ? `${rangeStart}--${rangeEnd}` : "")
                     }
-                    onInput={(event) => setDraftRange(event.currentTarget.value)}
+                    onInput={(event) => applyRange(event.currentTarget.value)}
                   />
                   <s-stack direction="inline" justifyContent="end">
                     <s-button commandFor="history-date-range" command="--hide">
@@ -309,18 +333,12 @@ function HistoryList({
               onClick={() => {
                 setQuery("");
                 setDraftRange(undefined);
-                setParams(new URLSearchParams());
+                setParams(historyFilterParams());
               }}
             >
               Clear filters
             </s-button>
           ) : null}
-          <s-button
-            disabled={loading || selectingEnd || invalidDates}
-            onClick={() => go(1, true)}
-          >
-            Apply filters
-          </s-button>
         </s-stack>
         <IndexTableFilterChips
           filters={[
@@ -329,11 +347,13 @@ function HistoryList({
                   {
                     label: `Search: ${history.search}`,
                     onRemove: () => {
-                      const params = new URLSearchParams();
-                      if (history.from) params.set("from", history.from);
-                      if (history.to) params.set("to", history.to);
                       setQuery("");
-                      setParams(params);
+                      setParams(
+                        historyFilterParams({
+                          from: history.from,
+                          to: history.to,
+                        }),
+                      );
                     },
                   },
                 ]
@@ -343,10 +363,10 @@ function HistoryList({
                   {
                     label: `Date: ${history.from || history.min} – ${history.to || history.max}`,
                     onRemove: () => {
-                      const params = new URLSearchParams();
-                      if (history.search) params.set("q", history.search);
                       setDraftRange(undefined);
-                      setParams(params);
+                      setParams(
+                        historyFilterParams({ search: history.search }),
+                      );
                     },
                   },
                 ]
@@ -355,7 +375,7 @@ function HistoryList({
           onClearAll={() => {
             setQuery("");
             setDraftRange(undefined);
-            setParams(new URLSearchParams());
+            setParams(historyFilterParams());
           }}
         />
         <s-table-header-row>
@@ -438,7 +458,7 @@ function HistoryList({
                 onClick={() => {
                   setQuery("");
                   setDraftRange(undefined);
-                  setParams(new URLSearchParams());
+                  setParams(historyFilterParams());
                 }}
               >
                 Clear filters

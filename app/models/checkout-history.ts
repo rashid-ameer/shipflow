@@ -22,6 +22,31 @@ function dateOnly(value: string | null) {
     : null;
 }
 
+export function historyFilterParams({
+  search = "",
+  from = "",
+  to = "",
+  page = 1,
+}: {
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  const query = search.trim().slice(0, 120);
+  if (query) params.set("q", query);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (page > 1) params.set("page", String(page));
+  return params;
+}
+
+export function parseHistoryRange(value: string | undefined) {
+  const [from = "", to = ""] = value?.split("--") ?? [];
+  return { from, to, complete: Boolean(from && to) };
+}
+
 export function historyFilters(params: URLSearchParams, now = new Date()) {
   const cutoff = historyCutoff(now);
   const min = cutoff.toISOString().slice(0, 10);
