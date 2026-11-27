@@ -8,6 +8,7 @@ export function IndexTableSection({
   hasNextPage = false,
   onPreviousPage,
   onNextPage,
+  filters,
   children,
 }: {
   label: string;
@@ -17,6 +18,7 @@ export function IndexTableSection({
   hasNextPage?: boolean;
   onPreviousPage?: () => void;
   onNextPage?: () => void;
+  filters?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -29,6 +31,11 @@ export function IndexTableSection({
         onPreviousPage={onPreviousPage}
         onNextPage={onNextPage}
       >
+        {filters ? (
+          <s-stack slot="filters" gap="small-200">
+            {filters}
+          </s-stack>
+        ) : null}
         {children}
       </s-table>
     </s-section>
@@ -43,11 +50,7 @@ export function IndexTableFilters({
   children: ReactNode;
 }) {
   return (
-    <s-grid
-      slot="filters"
-      gap="small-200"
-      gridTemplateColumns={columns}
-    >
+    <s-grid gap="small-200" gridTemplateColumns={columns}>
       {children}
     </s-grid>
   );
@@ -62,12 +65,7 @@ export function IndexTableFilterChips({
 }) {
   if (!filters.length) return null;
   return (
-    <s-stack
-      slot="filters"
-      direction="inline"
-      gap="small-200"
-      alignItems="center"
-    >
+    <s-stack direction="inline" gap="small-200" alignItems="center">
       {filters.map((filter) => (
         <s-clickable-chip
           key={filter.label}
@@ -120,7 +118,7 @@ export function IndexTableBulkActions({
   children: ReactNode;
 }) {
   return (
-    <s-box slot="filters" padding="small" background="strong">
+    <s-box padding="small" background="strong">
       <s-stack
         direction="inline"
         gap="small"

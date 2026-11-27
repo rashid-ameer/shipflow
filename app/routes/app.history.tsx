@@ -272,112 +272,108 @@ function HistoryList({
         hasNextPage={history.page < history.pageCount}
         onPreviousPage={() => go(history.page - 1)}
         onNextPage={() => go(history.page + 1)}
-      >
-        <IndexTableFilters columns="minmax(0, 2fr) auto">
-          <s-search-field
-            label="Search customer name or History ID"
-            labelAccessibilityVisibility="exclusive"
-            placeholder="Search customer name or History ID"
-            value={query}
-            maxLength={120}
-            disabled={loading}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-          />
-          <s-stack direction="inline">
-            <s-button
-              icon="calendar"
-              accessibilityLabel={
-                rangeLabel ? `Date range, ${rangeLabel}` : undefined
-              }
-              commandFor="history-date-range"
-              command="--toggle"
-              disabled={loading}
-            >
-              {rangeLabel || "Date range"}
-            </s-button>
-            <s-popover id="history-date-range" inlineSize="300px">
-              <s-box padding="small">
-                <s-stack gap="small">
-                  <s-date-picker
-                    type="range"
-                    allow={`${history.min}--${history.max}`}
-                    defaultView={(history.from || history.to || history.max).slice(
-                      0,
-                      7,
-                    )}
-                    value={
-                      draftRange ??
-                      (from || to ? `${rangeStart}--${rangeEnd}` : "")
-                    }
-                    onInput={(event) => applyRange(event.currentTarget.value)}
-                  />
-                  <s-stack direction="inline" justifyContent="end">
-                    <s-button commandFor="history-date-range" command="--hide">
-                      Done
-                    </s-button>
-                  </s-stack>
-                </s-stack>
-              </s-box>
-            </s-popover>
-          </s-stack>
-        </IndexTableFilters>
-        <s-stack slot="filters" direction="inline" gap="small" justifyContent="end">
-          {invalidDates ? (
-            <s-text tone="critical">
-              Choose an end date on or after the start date.
-            </s-text>
-          ) : null}
-          {history.search || history.from || history.to ? (
-            <s-button
-              disabled={loading}
-              onClick={() => {
+        filters={
+          <>
+            <IndexTableFilters columns="minmax(0, 2fr) auto">
+              <s-search-field
+                label="Search customer name or History ID"
+                labelAccessibilityVisibility="exclusive"
+                placeholder="Search customer name or History ID"
+                value={query}
+                maxLength={120}
+                disabled={loading}
+                onInput={(event) => setQuery(event.currentTarget.value)}
+              />
+              <s-stack direction="inline">
+                <s-button
+                  icon="calendar"
+                  accessibilityLabel={
+                    rangeLabel ? `Date range, ${rangeLabel}` : undefined
+                  }
+                  commandFor="history-date-range"
+                  command="--toggle"
+                  disabled={loading}
+                >
+                  {rangeLabel || "Date range"}
+                </s-button>
+                <s-popover id="history-date-range" inlineSize="300px">
+                  <s-box padding="small">
+                    <s-stack gap="small">
+                      <s-date-picker
+                        type="range"
+                        allow={`${history.min}--${history.max}`}
+                        defaultView={(
+                          history.from ||
+                          history.to ||
+                          history.max
+                        ).slice(0, 7)}
+                        value={
+                          draftRange ??
+                          (from || to ? `${rangeStart}--${rangeEnd}` : "")
+                        }
+                        onInput={(event) =>
+                          applyRange(event.currentTarget.value)
+                        }
+                      />
+                      <s-stack direction="inline" justifyContent="end">
+                        <s-button
+                          commandFor="history-date-range"
+                          command="--hide"
+                        >
+                          Done
+                        </s-button>
+                      </s-stack>
+                    </s-stack>
+                  </s-box>
+                </s-popover>
+              </s-stack>
+            </IndexTableFilters>
+            {invalidDates ? (
+              <s-text tone="critical">
+                Choose an end date on or after the start date.
+              </s-text>
+            ) : null}
+            <IndexTableFilterChips
+              filters={[
+                ...(history.search
+                  ? [
+                      {
+                        label: `Search: ${history.search}`,
+                        onRemove: () => {
+                          setQuery("");
+                          setParams(
+                            historyFilterParams({
+                              from: history.from,
+                              to: history.to,
+                            }),
+                          );
+                        },
+                      },
+                    ]
+                  : []),
+                ...(history.from || history.to
+                  ? [
+                      {
+                        label: `Date: ${history.from || history.min} – ${history.to || history.max}`,
+                        onRemove: () => {
+                          setDraftRange(undefined);
+                          setParams(
+                            historyFilterParams({ search: history.search }),
+                          );
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+              onClearAll={() => {
                 setQuery("");
                 setDraftRange(undefined);
                 setParams(historyFilterParams());
               }}
-            >
-              Clear filters
-            </s-button>
-          ) : null}
-        </s-stack>
-        <IndexTableFilterChips
-          filters={[
-            ...(history.search
-              ? [
-                  {
-                    label: `Search: ${history.search}`,
-                    onRemove: () => {
-                      setQuery("");
-                      setParams(
-                        historyFilterParams({
-                          from: history.from,
-                          to: history.to,
-                        }),
-                      );
-                    },
-                  },
-                ]
-              : []),
-            ...(history.from || history.to
-              ? [
-                  {
-                    label: `Date: ${history.from || history.min} – ${history.to || history.max}`,
-                    onRemove: () => {
-                      setDraftRange(undefined);
-                      setParams(
-                        historyFilterParams({ search: history.search }),
-                      );
-                    },
-                  },
-                ]
-              : []),
-          ]}
-          onClearAll={() => {
-            setQuery("");
-            setDraftRange(undefined);
-            setParams(historyFilterParams());
-          }}
-        />
+            />
+          </>
+        }
+      >
         <s-table-header-row>
           <s-table-header listSlot="primary">History ID</s-table-header>
           <s-table-header listSlot="labeled">Customer</s-table-header>

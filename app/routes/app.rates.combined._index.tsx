@@ -183,118 +183,123 @@ export default function CombinedRatesPage() {
             setChecked([]);
             setParams(filter(search, status, sort, page + 1));
           }}
-        >
-          {selected.length > 0 ? (
-            <IndexTableBulkActions count={selected.length} total={rows.length}>
-              <s-button
-                disabled={busy || !connected}
-                onClick={() => submit("activate", selected)}
+          filters={
+            selected.length > 0 ? (
+              <IndexTableBulkActions
+                count={selected.length}
+                total={rows.length}
               >
-                Set active
-              </s-button>
-              <s-button
-                disabled={busy}
-                onClick={() => submit("deactivate", selected)}
-              >
-                Set inactive
-              </s-button>
-              <s-button
-                tone="critical"
-                disabled={busy}
-                commandFor="delete-combined-rates"
-                command="--show"
-                onClick={() => {
-                  setDeleteError(undefined);
-                  setConfirmation(selected);
-                }}
-              >
-                Delete selected
-              </s-button>
-            </IndexTableBulkActions>
-          ) : total > 0 ? (
-            <>
-              <IndexTableFilters columns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))">
-                <s-search-field
-                  label="Search combined rates"
-                  labelAccessibilityVisibility="exclusive"
-                  placeholder="Search combined rates"
-                  value={query}
-                  maxLength={120}
-                  onInput={(event) => setQuery(event.currentTarget.value)}
+                <s-button
+                  disabled={busy || !connected}
+                  onClick={() => submit("activate", selected)}
+                >
+                  Set active
+                </s-button>
+                <s-button
+                  disabled={busy}
+                  onClick={() => submit("deactivate", selected)}
+                >
+                  Set inactive
+                </s-button>
+                <s-button
+                  tone="critical"
+                  disabled={busy}
+                  commandFor="delete-combined-rates"
+                  command="--show"
+                  onClick={() => {
+                    setDeleteError(undefined);
+                    setConfirmation(selected);
+                  }}
+                >
+                  Delete selected
+                </s-button>
+              </IndexTableBulkActions>
+            ) : total > 0 ? (
+              <>
+                <IndexTableFilters columns="repeat(auto-fit, minmax(min(100%, 155px), 1fr))">
+                  <s-search-field
+                    label="Search combined rates"
+                    labelAccessibilityVisibility="exclusive"
+                    placeholder="Search combined rates"
+                    value={query}
+                    maxLength={120}
+                    onInput={(event) => setQuery(event.currentTarget.value)}
+                  />
+                  <s-select
+                    label="Status"
+                    labelAccessibilityVisibility="exclusive"
+                    placeholder="Status"
+                    value={status}
+                    onChange={(event) => {
+                      setChecked([]);
+                      setParams(filter(query, event.currentTarget.value, sort));
+                    }}
+                  >
+                    <s-option value="all">All statuses</s-option>
+                    <s-option value="active">Active</s-option>
+                    <s-option value="inactive">Inactive</s-option>
+                  </s-select>
+                  <s-select
+                    label="Sort by"
+                    labelAccessibilityVisibility="exclusive"
+                    placeholder="Sort by"
+                    value={sort}
+                    onChange={(event) => {
+                      setChecked([]);
+                      setParams(filter(query, status, event.currentTarget.value));
+                    }}
+                  >
+                    <s-option value="priority">Rule order</s-option>
+                    <s-option value="name">Name</s-option>
+                  </s-select>
+                </IndexTableFilters>
+                <IndexTableFilterChips
+                  filters={[
+                    ...(search
+                      ? [
+                          {
+                            label: `Search: ${search}`,
+                            onRemove: () => {
+                              setQuery("");
+                              setChecked([]);
+                              setParams(filter("", status, sort));
+                            },
+                          },
+                        ]
+                      : []),
+                    ...(status !== "all"
+                      ? [
+                          {
+                            label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
+                            onRemove: () => {
+                              setChecked([]);
+                              setParams(filter(query, "all", sort));
+                            },
+                          },
+                        ]
+                      : []),
+                    ...(sort !== "priority"
+                      ? [
+                          {
+                            label: "Sort: Name",
+                            onRemove: () => {
+                              setChecked([]);
+                              setParams(filter(query, status, "priority"));
+                            },
+                          },
+                        ]
+                      : []),
+                  ]}
+                  onClearAll={() => {
+                    setQuery("");
+                    setChecked([]);
+                    setParams({});
+                  }}
                 />
-                <s-select
-                  label="Status"
-                  labelAccessibilityVisibility="exclusive"
-                  placeholder="Status"
-                  value={status}
-                  onChange={(event) => {
-                    setChecked([]);
-                    setParams(filter(query, event.currentTarget.value, sort));
-                  }}
-                >
-                  <s-option value="all">All statuses</s-option>
-                  <s-option value="active">Active</s-option>
-                  <s-option value="inactive">Inactive</s-option>
-                </s-select>
-                <s-select
-                  label="Sort by"
-                  labelAccessibilityVisibility="exclusive"
-                  placeholder="Sort by"
-                  value={sort}
-                  onChange={(event) => {
-                    setChecked([]);
-                    setParams(filter(query, status, event.currentTarget.value));
-                  }}
-                >
-                  <s-option value="priority">Rule order</s-option>
-                  <s-option value="name">Name</s-option>
-                </s-select>
-              </IndexTableFilters>
-              <IndexTableFilterChips
-                filters={[
-                  ...(search
-                    ? [
-                        {
-                          label: `Search: ${search}`,
-                          onRemove: () => {
-                            setQuery("");
-                            setChecked([]);
-                            setParams(filter("", status, sort));
-                          },
-                        },
-                      ]
-                    : []),
-                  ...(status !== "all"
-                    ? [
-                        {
-                          label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
-                          onRemove: () => {
-                            setChecked([]);
-                            setParams(filter(query, "all", sort));
-                          },
-                        },
-                      ]
-                    : []),
-                  ...(sort !== "priority"
-                    ? [
-                        {
-                          label: "Sort: Name",
-                          onRemove: () => {
-                            setChecked([]);
-                            setParams(filter(query, status, "priority"));
-                          },
-                        },
-                      ]
-                    : []),
-                ]}
-                onClearAll={() => {
-                  setQuery("");
-                  setChecked([]);
-                  setParams({});
-                }}
-              />
-            </>
-          ) : null}
+              </>
+            ) : null
+          }
+        >
           <s-table-header-row>
             <s-table-header>
               <s-checkbox

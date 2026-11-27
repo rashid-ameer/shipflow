@@ -373,35 +373,39 @@ export default function Products() {
           hasNextPage={page < totalPages}
           onPreviousPage={() => navigate(page - 1)}
           onNextPage={() => navigate(page + 1)}
+          filters={
+            <>
+              <IndexTableFilters columns="minmax(0, 1fr)">
+                <s-search-field
+                  label="Search by product name or tag"
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder="Search by product name or tag"
+                  value={search}
+                  onInput={(event) => setQuery(event.currentTarget.value)}
+                />
+              </IndexTableFilters>
+              <IndexTableFilterChips
+                filters={
+                  search
+                    ? [
+                        {
+                          label: `Search: ${search}`,
+                          onRemove: () => {
+                            setQuery("");
+                            setSearch({});
+                          },
+                        },
+                      ]
+                    : []
+                }
+                onClearAll={() => {
+                  setQuery("");
+                  setSearch({});
+                }}
+              />
+            </>
+          }
         >
-          <IndexTableFilters columns="minmax(0, 1fr)">
-            <s-search-field
-              label="Search by product name or tag"
-              labelAccessibilityVisibility="exclusive"
-              placeholder="Search by product name or tag"
-              value={search}
-              onInput={(event) => setQuery(event.currentTarget.value)}
-            />
-          </IndexTableFilters>
-          <IndexTableFilterChips
-            filters={
-              search
-                ? [
-                    {
-                      label: `Search: ${search}`,
-                      onRemove: () => {
-                        setQuery("");
-                        setSearch({});
-                      },
-                    },
-                  ]
-                : []
-            }
-            onClearAll={() => {
-              setQuery("");
-              setSearch({});
-            }}
-          />
           <s-table-header-row>
             <s-table-header listSlot="primary">Name</s-table-header>
             <s-table-header>Variants</s-table-header>

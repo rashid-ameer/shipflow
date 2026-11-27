@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
+import { createElement, Fragment } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
+import {
+  IndexTableFilterChips,
+  IndexTableSection,
+} from "../app/components/index-table";
 import {
   historyFilterParams,
   historyFilters,
@@ -34,5 +40,38 @@ assert.deepEqual(parseHistoryRange("2026-11-20--2026-11-25"), {
   to: "2026-11-25",
   complete: true,
 });
+
+const markup = renderToStaticMarkup(
+  createElement(
+    IndexTableSection,
+    {
+      label: "Checkout requests",
+      filters: createElement(
+        Fragment,
+        null,
+        createElement("s-search-field", { placeholder: "Search" }),
+        createElement(IndexTableFilterChips, {
+          filters: [{ label: "Search: Acme", onRemove() {} }],
+          onClearAll() {},
+        }),
+      ),
+      children: createElement(
+        Fragment,
+        null,
+        createElement(
+          "s-table-header-row",
+          null,
+          createElement("s-table-header", null, "History ID"),
+        ),
+        createElement("s-table-body", null),
+      ),
+    },
+  ),
+);
+
+assert.equal(markup.match(/slot="filters"/g)?.length, 1);
+assert.match(markup, /<s-clickable-chip/);
+assert.match(markup, /Search: Acme/);
+assert.match(markup, /Clear all/);
 
 console.log("history filter state tests passed");

@@ -98,48 +98,54 @@ export function MarketsDashboard({
   );
 
   const marketsTable = (
-    <IndexTableSection label="Markets">
-      <IndexTableFilters columns="auto">
-        <s-stack direction="inline" gap="small-200">
-          <s-button
-            {...pressedState(filter === "all")}
-            variant={filter === "all" ? "primary" : "secondary"}
-            onClick={() => setFilter("all")}
-          >
-            All ({markets.length})
-          </s-button>
-          <s-button
-            {...pressedState(filter === "ready")}
-            variant={filter === "ready" ? "primary" : "secondary"}
-            onClick={() => setFilter("ready")}
-          >
-            Ready ({readyCount})
-          </s-button>
-          <s-button
-            {...pressedState(filter === "needs-setup")}
-            variant={filter === "needs-setup" ? "primary" : "secondary"}
-            onClick={() => setFilter("needs-setup")}
-          >
-            Needs setup ({needsSetupCount})
-          </s-button>
-        </s-stack>
-      </IndexTableFilters>
-      <IndexTableFilterChips
-        filters={
-          filter === "all"
-            ? []
-            : [
-                {
-                  label:
-                    filter === "ready"
-                      ? "Status: Ready"
-                      : "Status: Needs setup",
-                  onRemove: () => setFilter("all"),
-                },
-              ]
-        }
-        onClearAll={() => setFilter("all")}
-      />
+    <IndexTableSection
+      label="Markets"
+      filters={
+        <>
+          <IndexTableFilters columns="auto">
+            <s-stack direction="inline" gap="small-200">
+              <s-button
+                {...pressedState(filter === "all")}
+                variant={filter === "all" ? "primary" : "secondary"}
+                onClick={() => setFilter("all")}
+              >
+                All ({markets.length})
+              </s-button>
+              <s-button
+                {...pressedState(filter === "ready")}
+                variant={filter === "ready" ? "primary" : "secondary"}
+                onClick={() => setFilter("ready")}
+              >
+                Ready ({readyCount})
+              </s-button>
+              <s-button
+                {...pressedState(filter === "needs-setup")}
+                variant={filter === "needs-setup" ? "primary" : "secondary"}
+                onClick={() => setFilter("needs-setup")}
+              >
+                Needs setup ({needsSetupCount})
+              </s-button>
+            </s-stack>
+          </IndexTableFilters>
+          <IndexTableFilterChips
+            filters={
+              filter === "all"
+                ? []
+                : [
+                    {
+                      label:
+                        filter === "ready"
+                          ? "Status: Ready"
+                          : "Status: Needs setup",
+                      onRemove: () => setFilter("all"),
+                    },
+                  ]
+            }
+            onClearAll={() => setFilter("all")}
+          />
+        </>
+      }
+    >
       <s-table-header-row>
         <s-table-header listSlot="primary">Market</s-table-header>
         <s-table-header listSlot="secondary">Status</s-table-header>

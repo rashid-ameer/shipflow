@@ -167,92 +167,97 @@ export default function ScenariosPage() {
             setSelected([]);
             setParams(lookup(search, status, page + 1));
           }}
-        >
-          {selection.length > 0 ? (
-            <IndexTableBulkActions count={selection.length} total={rows.length}>
-              <s-button
-                variant="secondary"
-                disabled={busy || !connected}
-                onClick={() => submit("activate")}
+          filters={
+            selection.length > 0 ? (
+              <IndexTableBulkActions
+                count={selection.length}
+                total={rows.length}
               >
-                Set active
-              </s-button>
-              <s-button
-                variant="secondary"
-                disabled={busy}
-                onClick={() => submit("deactivate")}
-              >
-                Set inactive
-              </s-button>
-              <s-button
-                variant="secondary"
-                tone="critical"
-                disabled={busy}
-                onClick={() => modal.current?.showOverlay()}
-              >
-                Delete selected
-              </s-button>
-            </IndexTableBulkActions>
-          ) : total > 0 ? (
-            <>
-              <IndexTableFilters columns="minmax(0, 2fr) minmax(0, 1fr)">
-                <s-search-field
-                  label="Search scenarios"
-                  labelAccessibilityVisibility="exclusive"
-                  placeholder="Search scenarios"
-                  value={query}
-                  maxLength={120}
-                  onInput={(event) => setQuery(event.currentTarget.value)}
-                />
-                <s-select
-                  label="Status"
-                  labelAccessibilityVisibility="exclusive"
-                  placeholder="Status"
-                  value={status}
-                  onChange={(event) => {
-                    setSelected([]);
-                    setParams(lookup(query, event.currentTarget.value));
-                  }}
+                <s-button
+                  variant="secondary"
+                  disabled={busy || !connected}
+                  onClick={() => submit("activate")}
                 >
-                  <s-option value="all">All</s-option>
-                  <s-option value="active">Active</s-option>
-                  <s-option value="inactive">Inactive</s-option>
-                </s-select>
-              </IndexTableFilters>
-              <IndexTableFilterChips
-                filters={[
-                  ...(search
-                    ? [
-                        {
-                          label: `Search: ${search}`,
-                          onRemove: () => {
-                            setQuery("");
-                            setSelected([]);
-                            setParams(lookup("", status));
+                  Set active
+                </s-button>
+                <s-button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => submit("deactivate")}
+                >
+                  Set inactive
+                </s-button>
+                <s-button
+                  variant="secondary"
+                  tone="critical"
+                  disabled={busy}
+                  onClick={() => modal.current?.showOverlay()}
+                >
+                  Delete selected
+                </s-button>
+              </IndexTableBulkActions>
+            ) : total > 0 ? (
+              <>
+                <IndexTableFilters columns="minmax(0, 2fr) minmax(0, 1fr)">
+                  <s-search-field
+                    label="Search scenarios"
+                    labelAccessibilityVisibility="exclusive"
+                    placeholder="Search scenarios"
+                    value={query}
+                    maxLength={120}
+                    onInput={(event) => setQuery(event.currentTarget.value)}
+                  />
+                  <s-select
+                    label="Status"
+                    labelAccessibilityVisibility="exclusive"
+                    placeholder="Status"
+                    value={status}
+                    onChange={(event) => {
+                      setSelected([]);
+                      setParams(lookup(query, event.currentTarget.value));
+                    }}
+                  >
+                    <s-option value="all">All</s-option>
+                    <s-option value="active">Active</s-option>
+                    <s-option value="inactive">Inactive</s-option>
+                  </s-select>
+                </IndexTableFilters>
+                <IndexTableFilterChips
+                  filters={[
+                    ...(search
+                      ? [
+                          {
+                            label: `Search: ${search}`,
+                            onRemove: () => {
+                              setQuery("");
+                              setSelected([]);
+                              setParams(lookup("", status));
+                            },
                           },
-                        },
-                      ]
-                    : []),
-                  ...(status !== "all"
-                    ? [
-                        {
-                          label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
-                          onRemove: () => {
-                            setSelected([]);
-                            setParams(lookup(search, "all"));
+                        ]
+                      : []),
+                    ...(status !== "all"
+                      ? [
+                          {
+                            label: `Status: ${status === "active" ? "Active" : "Inactive"}`,
+                            onRemove: () => {
+                              setSelected([]);
+                              setParams(lookup(search, "all"));
+                            },
                           },
-                        },
-                      ]
-                    : []),
-                ]}
-                onClearAll={() => {
-                  setQuery("");
-                  setSelected([]);
-                  setParams({});
-                }}
-              />
-            </>
-          ) : null}
+                        ]
+                      : []),
+                  ]}
+                  onClearAll={() => {
+                    setQuery("");
+                    setSelected([]);
+                    setParams({});
+                  }}
+                />
+              </>
+            ) : null
+          }
+        >
           <s-table-header-row>
             <s-table-header>
               <s-checkbox
